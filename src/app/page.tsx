@@ -1,65 +1,94 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { AppSidebar } from "@/components/app-sidebar";
+import { ChartAreaInteractive } from "@/components/chart-area-interactive";
+import { DataTable } from "@/components/data-table";
+import { OverviewInsightCharts } from "@/components/dashboard/overview-insight-charts";
+import { ObservatoryFilters } from "@/components/observatory-filters";
+import { SectionCards } from "@/components/section-cards";
+import { SiteHeader } from "@/components/site-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { useEvaluationOverview } from "@/hooks/use-observatory";
+import { useObservatoryStore } from "@/store/observatory-store";
+
+export default function Page() {
+  const { horizon, pair, fromDate, toDate, comparisonMode, setComparisonMode } =
+    useObservatoryStore();
+
+  const query = useEvaluationOverview({
+    horizon,
+    fromDate,
+    toDate,
+    currencyPairs: pair === "ALL" ? undefined : [pair],
+  });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              {query.isLoading ? (
+                <>
+                  <div className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4 lg:px-6">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-[140px] rounded-xl" />
+                    ))}
+                  </div>
+                  <div className="px-4 lg:px-6">
+                    <Skeleton className="h-[320px] rounded-xl" />
+                  </div>
+                  <div className="px-4 lg:px-6">
+                    <Skeleton className="h-[400px] rounded-xl" />
+                  </div>
+                </>
+              ) : query.isError || !query.data ? (
+                <div className="flex flex-col items-center justify-center gap-4 px-4 py-20 lg:px-6">
+                  <p className="text-lg font-medium">
+                    Could not load observatory data
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Check that the FastAPI service is reachable and evaluation
+                    endpoints are returning data.
+                  </p>
+                  <button
+                    onClick={() => query.refetch()}
+                    className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <ObservatoryFilters
+                    supportedPairs={query.data.supported_pairs}
+                  />
+                  <SectionCards kpis={query.data.kpis} />
+                  <div className="px-4 lg:px-6">
+                    <ChartAreaInteractive
+                      data={query.data.daily_series}
+                      mode={comparisonMode}
+                      onModeChange={setComparisonMode}
+                    />
+                  </div>
+                  <OverviewInsightCharts rows={query.data.pair_leaderboard} />
+                  <DataTable data={query.data.pair_leaderboard} />
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

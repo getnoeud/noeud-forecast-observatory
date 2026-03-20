@@ -6,6 +6,11 @@ on:
       - dev
       - staging
       - master
+  push:
+    branches:
+      - dev
+      - staging
+      - master
   workflow_dispatch:
 
 jobs:

@@ -5,12 +5,12 @@ on:
     branches:
       - dev
       - staging
-      - main
+      - master
   push:
     branches:
       - dev
       - staging
-      - main
+      - master
   workflow_dispatch:
 
 env:

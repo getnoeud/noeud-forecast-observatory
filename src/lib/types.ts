@@ -135,6 +135,9 @@ export type WeeklyEvaluationReportResponse = {
   week_start: string;
   week_end: string;
   horizon_days: number | null;
+  available_pairs: string[];
+  selected_pairs: string[];
+  resolved_from_latest_data: boolean;
   overall: WeeklyEvaluationSummary;
   pairs: WeeklyEvaluationPairSummary[];
   generated_at: string;

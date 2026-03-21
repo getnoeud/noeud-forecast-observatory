@@ -145,11 +145,39 @@ export type SentimentResponse = {
   currency_pair: string;
   date: string;
   sentiment_score: number;
+  confidence?: number | null;
+  direction?: string | null;
   num_articles: number;
   top_positive: string[];
   top_negative: string[];
   rationale: string | null;
+  market_narrative?: string | null;
+  uncertainties?: string[];
+  recommendation?: string | null;
+  llm_raw_responses?: SentimentLLMInteraction[] | null;
   created_at: string | null;
+};
+
+export type SentimentSearchResult = {
+  title?: string | null;
+  url?: string | null;
+  snippet?: string | null;
+  source?: string | null;
+  published_date?: string | null;
+};
+
+export type SentimentLLMInteraction = {
+  role: string;
+  model: string;
+  response_raw: string;
+  response_parsed?: Record<string, unknown> | null;
+  search_results?: SentimentSearchResult[] | null;
+  citations?: string[] | null;
+  response_id?: string | null;
+  finish_reason?: string | null;
+  timestamp?: string | null;
+  latency_ms?: number | null;
+  prompt_redacted: boolean;
 };
 
 export type SentimentHistoryResponse = {

@@ -93,12 +93,16 @@ export function useWeeklyEvaluationReport(filters: {
   });
 }
 
-export function useSentimentHistory(currencyPair: string, limit = 30) {
+export function useSentimentHistory(
+  currencyPair: string,
+  limit = 30,
+  includeRaw = false,
+) {
   return useQuery({
-    queryKey: ["sentiment-history", currencyPair, limit],
+    queryKey: ["sentiment-history", currencyPair, limit, includeRaw],
     queryFn: async () => {
       const response = await api.get<SentimentHistoryResponse>(`/sentiment/${currencyPair}/history`, {
-        params: { limit },
+        params: { limit, include_raw: includeRaw },
       });
       return response.data;
     },

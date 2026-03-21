@@ -57,7 +57,7 @@ export function PairDetailDashboard({
     toDate,
     limit: 250,
   });
-  const sentimentQuery = useSentimentHistory(currencyPair, 60);
+  const sentimentQuery = useSentimentHistory(currencyPair, 60, true);
   const predictionQuery = usePredictionHistory({
     currencyPair,
     horizon,

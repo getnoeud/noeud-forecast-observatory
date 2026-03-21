@@ -63,7 +63,9 @@ export function PairCombobox({
                   key={pair.value}
                   value={pair.value}
                   onSelect={() => {
-                    onValueChange(pair.value === value ? "ALL" : pair.value)
+                    if (pair.value !== value) {
+                      onValueChange(pair.value)
+                    }
                     setOpen(false)
                   }}
                 >

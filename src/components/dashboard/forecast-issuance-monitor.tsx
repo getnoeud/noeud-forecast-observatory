@@ -1,13 +1,15 @@
 "use client";
 
+import { type ColumnDef } from "@tanstack/react-table";
 import {
+  CartesianGrid,
   Line,
   LineChart,
-  CartesianGrid,
   XAxis,
   YAxis,
 } from "recharts";
 
+import { PaginatedDataTable } from "@/components/dashboard/paginated-data-table";
 import {
   Card,
   CardContent,
@@ -23,14 +25,6 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { PredictionHistoryItem } from "@/lib/types";
 
@@ -61,6 +55,23 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+function getDayRate(
+  prediction: PredictionHistoryItem,
+  day: string,
+): number | null {
+  return prediction.daily_forecasts?.[day]?.predicted_rate ?? null;
+}
+
+function getLatestPredictionWithStoredPath(
+  predictions: PredictionHistoryItem[],
+): PredictionHistoryItem | undefined {
+  return predictions.find(
+    (prediction) =>
+      prediction.daily_forecasts &&
+      Object.keys(prediction.daily_forecasts).length > 0,
+  );
+}
+
 function buildLatestForecastPath(latest: PredictionHistoryItem | undefined) {
   if (!latest?.daily_forecasts) {
     return [];
@@ -82,13 +93,6 @@ function buildLatestForecastPath(latest: PredictionHistoryItem | undefined) {
   });
 }
 
-function getDayRate(
-  prediction: PredictionHistoryItem,
-  day: string,
-): number | null {
-  return prediction.daily_forecasts?.[day]?.predicted_rate ?? null;
-}
-
 function buildIssuanceTrend(predictions: PredictionHistoryItem[]) {
   return predictions
     .slice()
@@ -101,13 +105,79 @@ function buildIssuanceTrend(predictions: PredictionHistoryItem[]) {
     }));
 }
 
+const issuanceColumns: ColumnDef<PredictionHistoryItem>[] = [
+  {
+    accessorKey: "forecast_date",
+    header: "Forecast Date",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs">
+        {formatDate(row.original.forecast_date)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "target_date",
+    header: "Target Date",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs">
+        {formatDate(row.original.target_date)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "current_rate",
+    header: "Current",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs">
+        {formatNumber(row.original.current_rate, 4)}
+      </span>
+    ),
+  },
+  {
+    id: "day_1_rate",
+    header: "Day 1",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs">
+        {formatNumber(getDayRate(row.original, "1"), 4)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "predicted_rate",
+    header: "Final",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs">
+        {formatNumber(row.original.predicted_rate, 4)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "sentiment_score",
+    header: "Sentiment",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs">
+        {formatNumber(row.original.sentiment_score, 2)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "model_version",
+    header: "Release",
+    cell: ({ row }) => (
+      <span className="text-xs text-muted-foreground">
+        {row.original.model_version ?? row.original.model_family ?? "--"}
+      </span>
+    ),
+  },
+];
+
 export function ForecastIssuanceMonitor({
   predictions,
 }: {
   predictions: PredictionHistoryItem[];
 }) {
-  const latest = predictions[0];
-  const latestPath = buildLatestForecastPath(latest);
+  const latestWithStoredPath = getLatestPredictionWithStoredPath(predictions);
+  const latestPath = buildLatestForecastPath(latestWithStoredPath);
   const issuanceTrend = buildIssuanceTrend(predictions);
 
   return (
@@ -116,18 +186,20 @@ export function ForecastIssuanceMonitor({
         <CardHeader>
           <CardTitle>Latest Forecast Path</CardTitle>
           <CardDescription>
-            Day-by-day path from the most recent forecast issuance, anchored
-            against the current rate at issuance time.
+            Day-by-day path from the most recent forecast issuance that has
+            stored daily forecast steps, anchored against the current rate at
+            issuance time.
           </CardDescription>
           <div className="text-xs text-muted-foreground">
-            Release: {latest?.model_version ?? "--"} · Family:{" "}
-            {latest?.model_family ?? "--"}
+            Release: {latestWithStoredPath?.model_version ?? "--"} | Family:{" "}
+            {latestWithStoredPath?.model_family ?? "--"}
           </div>
         </CardHeader>
         <CardContent>
           {latestPath.length === 0 ? (
             <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-              No daily forecast path is stored for the latest issuance yet.
+              No stored daily forecast path exists in the current prediction
+              history window yet.
             </div>
           ) : (
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
@@ -135,8 +207,17 @@ export function ForecastIssuanceMonitor({
                 data={latestPath}
                 margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
               >
-                <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
+                <CartesianGrid
+                  vertical={false}
+                  strokeDasharray="3 3"
+                  className="stroke-border"
+                />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
@@ -147,7 +228,9 @@ export function ForecastIssuanceMonitor({
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
-                      labelFormatter={(label) => `Forecast Step: ${String(label)}`}
+                      labelFormatter={(label) =>
+                        `Forecast Step: ${String(label)}`
+                      }
                       valueFormatter={(value) => formatNumber(Number(value), 4)}
                     />
                   }
@@ -207,7 +290,11 @@ export function ForecastIssuanceMonitor({
                 data={issuanceTrend}
                 margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
               >
-                <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border" />
+                <CartesianGrid
+                  vertical={false}
+                  strokeDasharray="3 3"
+                  className="stroke-border"
+                />
                 <XAxis
                   dataKey="forecast_date"
                   tickLine={false}
@@ -268,62 +355,16 @@ export function ForecastIssuanceMonitor({
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Forecast Date</TableHead>
-                  <TableHead>Target Date</TableHead>
-                  <TableHead>Current</TableHead>
-                  <TableHead>Day 1</TableHead>
-                  <TableHead>Final</TableHead>
-                  <TableHead>Sentiment</TableHead>
-                  <TableHead>Release</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {predictions.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      No stored prediction issuances yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  predictions.map((prediction) => (
-                    <TableRow key={prediction.public_id ?? `${prediction.forecast_date}-${prediction.target_date}`}>
-                      <TableCell className="font-mono text-xs">
-                        {formatDate(prediction.forecast_date)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatDate(prediction.target_date)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatNumber(prediction.current_rate, 4)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatNumber(getDayRate(prediction, "1"), 4)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatNumber(prediction.predicted_rate, 4)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatNumber(prediction.sentiment_score, 2)}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {prediction.model_version ?? prediction.model_family ?? "--"}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <PaginatedDataTable
+            columns={issuanceColumns}
+            data={predictions}
+            emptyMessage="No stored prediction issuances yet."
+            defaultPageSize={10}
+            pageSizeOptions={[10, 20, 30, 50]}
+            initialSorting={[{ id: "forecast_date", desc: true }]}
+          />
         </CardContent>
       </Card>
     </div>
   );
 }
-

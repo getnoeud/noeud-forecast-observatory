@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { ActualVsPredictedChart } from "@/components/dashboard/actual-vs-predicted-chart";
-import { EmptyState } from "@/components/dashboard/empty-state";
+import { DataAvailabilityBanner } from "@/components/dashboard/data-availability-banner";
 import { ErrorDistributionChart } from "@/components/dashboard/error-distribution-chart";
 import { EvaluationAuditTable } from "@/components/dashboard/evaluation-audit-table";
 import { ForecastIssuanceMonitor } from "@/components/dashboard/forecast-issuance-monitor";
@@ -97,37 +97,17 @@ export function PairDetailDashboard({
       </div>
     );
   }
-
-  if (historyQuery.isError || !historyQuery.data) {
-    return (
-      <EmptyState
-        variant="error"
-        title="Could not load pair detail"
-        description="Check the evaluation API and ensure matured forecast rows exist for this pair."
-        action={{ label: "Retry", onClick: () => historyQuery.refetch() }}
-      />
-    );
-  }
-
-  const rows = historyQuery.data.evaluations;
-  if (rows.length === 0) {
-    return (
-      <EmptyState
-        title={`No matured ${horizon}d evaluations for ${currencyPair}`}
-        description="Once forecasts for this pair mature against actual market data, the pair detail dashboard will fill in automatically."
-      />
-    );
-  }
+  const rows = historyQuery.data?.evaluations ?? [];
 
   const total = rows.length;
   const hits = rows.filter((r) => r.direction_correct === true).length;
-  const hitRate = (hits / total) * 100;
-  const mae = rows.reduce((s, r) => s + r.absolute_error, 0) / total;
-  const bias = rows.reduce((s, r) => s + r.signed_error, 0) / total;
+  const hitRate = total > 0 ? (hits / total) * 100 : null;
+  const mae = total > 0 ? rows.reduce((s, r) => s + r.absolute_error, 0) / total : null;
+  const bias = total > 0 ? rows.reduce((s, r) => s + r.signed_error, 0) / total : null;
   const sentimentBeats = rows.filter(
     (r) => r.sentiment_beats_quant === true,
   ).length;
-  const sentimentRate = (sentimentBeats / total) * 100;
+  const sentimentRate = total > 0 ? (sentimentBeats / total) * 100 : null;
 
   const kpis = [
     {
@@ -139,26 +119,45 @@ export function PairDetailDashboard({
       label: "Hit Rate",
       value: formatPercent(hitRate),
       icon: Crosshair,
-      trend: hitRate >= 55 ? ("up" as const) : ("down" as const),
-      progress: hitRate,
+      trend:
+        hitRate === null ? undefined : hitRate >= 55 ? ("up" as const) : ("down" as const),
+      progress: hitRate ?? undefined,
     },
     {
       label: "MAE",
       value: formatNumber(mae),
       icon: TrendingDown,
-      trend: mae < 0.05 ? ("up" as const) : ("down" as const),
+      trend: mae === null ? undefined : mae < 0.05 ? ("up" as const) : ("down" as const),
     },
     {
       label: "Sentiment Wins",
       value: formatPercent(sentimentRate),
       icon: Zap,
-      trend: sentimentRate > 50 ? ("up" as const) : ("down" as const),
-      progress: sentimentRate,
+      trend:
+        sentimentRate === null
+          ? undefined
+          : sentimentRate > 50
+            ? ("up" as const)
+            : ("down" as const),
+      progress: sentimentRate ?? undefined,
     },
   ];
 
   return (
     <div className="space-y-6">
+      {historyQuery.isError ? (
+        <DataAvailabilityBanner
+          variant="error"
+          title="Pair evaluation data is temporarily unavailable"
+          description="We could not load matured evaluation rows just now. Forecast issuance and sentiment tabs may still have data, and the layout below is staying visible so the page does not collapse."
+          action={{ label: "Retry", onClick: () => historyQuery.refetch() }}
+        />
+      ) : total === 0 ? (
+        <DataAvailabilityBanner
+          title={`No matured ${horizon}d evaluations yet for ${currencyPair}`}
+          description="Recent forecasts may already exist, but they have not matured into evaluation rows yet. The cards and tabs below will fill in automatically as the market resolves those forecasts."
+        />
+      ) : null}
       {/* KPIs */}
       <motion.div
         {...fadeIn}
@@ -193,8 +192,14 @@ export function PairDetailDashboard({
       {/* Bias + quick stats */}
       <div className="flex flex-wrap gap-3">
         <Badge variant="outline">Bias: {formatNumber(bias)}</Badge>
-        <Badge variant={hitRate >= 55 ? "default" : "secondary"}>
-          {hitRate >= 55 ? (
+        <Badge
+          variant={
+            hitRate === null ? "outline" : hitRate >= 55 ? "default" : "secondary"
+          }
+        >
+          {hitRate === null ? (
+            <>Waiting for matured data</>
+          ) : hitRate >= 55 ? (
             <>
               <CheckCircle2 className="mr-1 h-3 w-3" /> Model has edge
             </>

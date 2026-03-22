@@ -62,41 +62,47 @@ export function SentimentImpactChart({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border" />
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(v) => {
-                const d = new Date(v);
-                return d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
-              }}
-              className="text-xs"
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(v) => formatNumber(v, 3)}
-              className="text-xs"
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(label) => formatDate(String(label))}
-                  valueFormatter={(value) => formatNumber(Number(value), 4)}
-                />
-              }
-            />
-            <ChartLegend content={<ChartLegendContent />} />
-            <Bar dataKey="sentiment_score" fill="var(--color-sentiment_score)" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="sentiment_adjustment" fill="var(--color-sentiment_adjustment)" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="absolute_error" fill="var(--color-absolute_error)" radius={[3, 3, 0, 0]} />
-          </BarChart>
-        </ChartContainer>
+        {chartData.length === 0 ? (
+          <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+            No sentiment-linked evaluation rows yet for this pair and horizon.
+          </div>
+        ) : (
+          <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border" />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(v) => {
+                  const d = new Date(v);
+                  return d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+                }}
+                className="text-xs"
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(v) => formatNumber(v, 3)}
+                className="text-xs"
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(label) => formatDate(String(label))}
+                    valueFormatter={(value) => formatNumber(Number(value), 4)}
+                  />
+                }
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="sentiment_score" fill="var(--color-sentiment_score)" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="sentiment_adjustment" fill="var(--color-sentiment_adjustment)" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="absolute_error" fill="var(--color-absolute_error)" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   );

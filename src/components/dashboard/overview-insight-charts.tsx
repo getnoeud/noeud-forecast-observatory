@@ -58,7 +58,30 @@ export function OverviewInsightCharts({
   rows: EvaluationPairSummary[];
 }) {
   if (rows.length === 0) {
-    return null;
+    return (
+      <div className="grid gap-6 px-4 lg:grid-cols-3 lg:px-6">
+        {[
+          "Evaluation Share by Pair",
+          "Directional Accuracy by Pair",
+          "Sentiment Lift by Pair",
+        ].map((title) => (
+          <Card key={title}>
+            <CardHeader>
+              <CardTitle>{title}</CardTitle>
+              <CardDescription>
+                This chart will populate once matured evaluation rows exist for
+                the current filter window.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex h-[260px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+                No chart data yet.
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
   }
 
   return (

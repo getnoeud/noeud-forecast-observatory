@@ -6,7 +6,7 @@ import { ArrowUpDown, Calendar, Download, Info } from "lucide-react";
 import { useMemo } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 
-import { EmptyState } from "@/components/dashboard/empty-state";
+import { DataAvailabilityBanner } from "@/components/dashboard/data-availability-banner";
 import { PaginatedDataTable } from "@/components/dashboard/paginated-data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -186,6 +186,29 @@ export function WeeklyReportDashboard({
   query,
 }: WeeklyReportDashboardProps) {
   const pairColumns = useMemo(() => buildPairColumns(horizon), [horizon]);
+  const data =
+    query.data ??
+    ({
+      week_start: weekStart ?? "",
+      week_end: weekStart ?? "",
+      horizon_days: horizon,
+      available_pairs: currencyPair !== "ALL" ? [currencyPair] : [],
+      selected_pairs: currencyPair !== "ALL" ? [currencyPair] : [],
+      resolved_from_latest_data: false,
+      overall: {
+        evaluation_count: 0,
+        directional_hit_rate: null,
+        mae: null,
+        rmse: null,
+        bias: null,
+        mean_absolute_percentage_error: null,
+        avg_sentiment_adjustment: null,
+        quant_mae: null,
+        adjusted_vs_quant_mae_delta: null,
+      },
+      pairs: [],
+      generated_at: new Date().toISOString(),
+    } satisfies WeeklyEvaluationReportResponse);
 
   if (query.isLoading) {
     return (
@@ -212,19 +235,6 @@ export function WeeklyReportDashboard({
       </div>
     );
   }
-
-  if (query.isError || !query.data) {
-    return (
-      <EmptyState
-        variant="error"
-        title="Could not load performance report"
-        description="Check the evaluation API and available data window."
-        action={{ label: "Retry", onClick: () => query.refetch() }}
-      />
-    );
-  }
-
-  const { data } = query;
   const apiBase =
     process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
     process.env.NEXT_PUBLIC_FORECAST_API_BASE_URL?.trim() ||
@@ -259,6 +269,23 @@ export function WeeklyReportDashboard({
 
   return (
     <div className="space-y-6">
+      {query.isError ? (
+        <DataAvailabilityBanner
+          variant="error"
+          title="Report data is temporarily unavailable"
+          description="We could not load the weekly evaluation report just now. The report layout is still visible below with empty placeholders until the API responds again."
+          action={{ label: "Retry", onClick: () => query.refetch() }}
+        />
+      ) : isEmpty ? (
+        <DataAvailabilityBanner
+          title="No report data for this filter window"
+          description={
+            weekStart
+              ? "That week does not have matured evaluation rows yet. Try the latest week with data or switch to a different pair."
+              : "No matured evaluation rows are available yet for this horizon."
+          }
+        />
+      ) : null}
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -281,7 +308,11 @@ export function WeeklyReportDashboard({
               </CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => window.open(exportUrl, "_blank")}>
+              <Button
+                variant="outline"
+                onClick={() => window.open(exportUrl, "_blank")}
+                disabled={isEmpty || !data.week_start}
+              >
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 Export CSV
               </Button>
@@ -381,37 +412,25 @@ export function WeeklyReportDashboard({
           ))}
         </CardContent>
       </Card>
-
-      {isEmpty ? (
-        <EmptyState
-          title="No report rows for this filter window"
-          description={
-            weekStart
-              ? "The selected report week does not have matured evaluation rows yet. Try the latest week with data or a different pair."
-              : "No matured evaluation rows are available yet for this horizon."
-          }
-        />
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Pair Breakdown</CardTitle>
-            <CardDescription>
-              Pair-level weekly performance summary using the same paginated table pattern as
-              the rest of the observatory.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <PaginatedDataTable
-              columns={pairColumns}
-              data={data.pairs}
-              emptyMessage="No pair data for this report window."
-              defaultPageSize={10}
-              pageSizeOptions={[10, 20, 30, 50]}
-              initialSorting={[{ id: "mae", desc: false }]}
-            />
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Pair Breakdown</CardTitle>
+          <CardDescription>
+            Pair-level weekly performance summary using the same paginated table pattern as
+            the rest of the observatory.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <PaginatedDataTable
+            columns={pairColumns}
+            data={data.pairs}
+            emptyMessage="No report rows for this filter window."
+            defaultPageSize={10}
+            pageSizeOptions={[10, 20, 30, 50]}
+            initialSorting={[{ id: "mae", desc: false }]}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -32,6 +32,16 @@ Main pages:
 - `/settings`
   - lightweight internal settings page
 
+### Dashboard Screenshots
+
+![](./screenshots/overview-page.png)
+![](./screenshots/report-page.png)
+![](./screenshots/pair-review-page.png)
+![](./screenshots/pair-review-page-1.png)
+![](./screenshots/pair-review-page-sentiment.png)
+![](./screenshots/pair-review-page-sentiment-1.png)
+![](./screenshots/pair-review-page-sentiment-2.png)
+
 ## Architecture
 
 ```mermaid

@@ -54,6 +54,17 @@ const chartConfig = {
 
 type TimeRange = "7d" | "30d" | "90d";
 
+type RollingForecastChartPoint = {
+  label: string;
+  date: string;
+  actual_rate: number | null;
+  quant_path: number | null;
+  adjusted_path: number | null;
+  confidence_lower: number | null;
+  confidence_upper: number | null;
+  actual_observed_date: string | null;
+};
+
 const RANGE_DAYS: Record<TimeRange, number> = {
   "7d": 7,
   "30d": 30,
@@ -150,7 +161,7 @@ export function ActualVsPredictedChart({
       (a, b) => Number(a) - Number(b),
     );
 
-    const points = [
+    const points: RollingForecastChartPoint[] = [
       {
         label: "Issued",
         date: selectedPrediction.forecast_date,
@@ -240,7 +251,9 @@ export function ActualVsPredictedChart({
 
             <Select
               value={selectedForecastDate}
-              onValueChange={setSelectedForecastDate}
+              onValueChange={(value) =>
+                setSelectedForecastDate(value ?? undefined)
+              }
               disabled={filteredPredictions.length === 0}
             >
               <SelectTrigger className="min-w-[220px]">

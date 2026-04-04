@@ -61,7 +61,7 @@ export function PairDetailDashboard({
   const predictionQuery = usePredictionHistory({
     currencyPair,
     horizon,
-    limit: 60,
+    limit: 180,
   });
   const router = useRouter();
   const pathname = usePathname();
@@ -230,7 +230,10 @@ export function PairDetailDashboard({
 
         <TabsContent value="charts" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-1">
-            <ActualVsPredictedChart rows={rows} />
+            <ActualVsPredictedChart
+              predictions={predictionQuery.data?.predictions ?? []}
+              isLoading={predictionQuery.isLoading}
+            />
             <ErrorDistributionChart rows={rows} />
           </div>
         </TabsContent>

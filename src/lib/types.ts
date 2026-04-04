@@ -79,6 +79,12 @@ export type DailyForecastPoint = {
   predicted_return: number | null;
 };
 
+export type ActualDailyPoint = {
+  actual_date: string;
+  actual_rate: number;
+  resolved_via_next_market_day: boolean;
+};
+
 export type PredictionHistoryItem = {
   public_id: string | null;
   forecast_date: string;
@@ -96,6 +102,8 @@ export type PredictionHistoryItem = {
   model_version: string | null;
   model_family: string | null;
   daily_forecasts: Record<string, DailyForecastPoint> | null;
+  adjusted_daily_forecasts: Record<string, DailyForecastPoint> | null;
+  actual_daily_path: Record<string, ActualDailyPoint> | null;
   actual_rate: number | null;
   error: number | null;
 };

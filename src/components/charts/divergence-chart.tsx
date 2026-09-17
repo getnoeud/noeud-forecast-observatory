@@ -96,6 +96,12 @@ export function ModelComparisonChart({
             );
           }}
         />
+        {/*
+          Weekly is solid and drawn first; daily is dashed and drawn on top so
+          its gaps reveal weekly beneath. When the two series nearly coincide
+          that dash pattern alone reads as "daily is missing" — the dot markers
+          are what actually keeps the bootstrap visible on an unbroken line.
+        */}
         <Line
           dataKey="weeklyMedian"
           stroke={WEEKLY}
@@ -107,9 +113,10 @@ export function ModelComparisonChart({
         <Line
           dataKey="dailyMedian"
           stroke={DAILY}
-          strokeWidth={2}
+          strokeWidth={2.25}
           strokeDasharray="5 4"
-          dot={false}
+          dot={{ r: 2.5, strokeWidth: 0, fill: DAILY }}
+          activeDot={{ r: 4, strokeWidth: 0, fill: DAILY }}
           connectNulls
           isAnimationActive={false}
         />

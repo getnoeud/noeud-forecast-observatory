@@ -23,7 +23,7 @@ import {
   TooltipRow,
   TooltipShell,
 } from "@/components/charts/frame";
-import type { WidthRow } from "@/lib/analytics";
+import { niceDomain, type WidthRow } from "@/lib/analytics";
 import { formatDate, formatPercent, formatRate } from "@/lib/format";
 
 
@@ -118,6 +118,12 @@ export function UncertaintyGrowthChart({
  * means more room above the median (cedi weaker) than below it.
  */
 export function SkewChart({ rows, height = 220 }: { rows: WidthRow[]; height?: number }) {
+  const axis = niceDomain(
+    rows.map((row) => row.skew).concat(0),
+    5,
+    0.15,
+  );
+
   return (
     <ChartFrame
       title="Distribution skew by horizon"
@@ -140,24 +146,35 @@ export function SkewChart({ rows, height = 220 }: { rows: WidthRow[]; height?: n
           minTickGap={16}
         />
         <YAxis
+          domain={axis?.domain ?? ["auto", "auto"]}
+          ticks={axis?.ticks}
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
           width={44}
           tickFormatter={(value: number) => `${value.toFixed(0)}%`}
         />
-        <ReferenceLine y={0} stroke="var(--border)" />
+        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
         <Tooltip
           cursor={{ fill: "var(--muted)", fillOpacity: 0.5 }}
           content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
             const row = payload[0].payload as WidthRow;
+            const upside = row.skew > 0;
+            const flat = row.skew === 0;
             return (
               <TooltipShell title={`Day ${row.horizon}`} subtitle={formatDate(row.target_date)}>
-                <TooltipRow label="Skew" value={formatPercent(row.skew, 1, true)} emphasis />
                 <TooltipRow
-                  label="Direction"
-                  value={row.skew > 0 ? "Upside-heavy" : row.skew < 0 ? "Downside-heavy" : "Symmetric"}
+                  label={
+                    flat
+                      ? "Symmetric"
+                      : upside
+                        ? "Upside-heavy (cedi weaker)"
+                        : "Downside-heavy (cedi firmer)"
+                  }
+                  value={formatPercent(row.skew, 1, true)}
+                  color={flat ? undefined : upside ? "var(--chart-8)" : "var(--chart-1)"}
+                  emphasis
                 />
               </TooltipShell>
             );

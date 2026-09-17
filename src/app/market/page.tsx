@@ -17,14 +17,7 @@ import {
   StatTile,
 } from "@/components/obs/primitives";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   buildMultiSeries,
   logReturns,
@@ -234,8 +227,10 @@ export default async function MarketPage({
               title="Coverage"
               description="Continuity of the calendar-day series per pair, across the full stored history."
             />
-            <Table>
-              <TableHeader>
+            <PaginatedTable
+              pageSize={10}
+              label="pairs"
+              header={
                 <TableRow>
                   <TableHead>Pair</TableHead>
                   <TableHead>First</TableHead>
@@ -243,31 +238,29 @@ export default async function MarketPage({
                   <TableHead className="text-right">Days</TableHead>
                   <TableHead className="text-right">Versions</TableHead>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {coverage.map((row) => (
-                  <TableRow key={row.pair}>
-                    <TableCell>
-                      <PairBadge pair={row.pair} />
-                    </TableCell>
-                    <TableCell className="text-xs">{formatDate(row.first_date)}</TableCell>
-                    <TableCell className="text-xs">{formatDate(row.last_date)}</TableCell>
-                    <TableCell className="tnum text-right font-mono text-xs">
-                      {formatInteger(row.observed_days)}
-                      {row.observed_days === row.span_days ? null : (
-                        <span className="text-[var(--warning)]">
-                          {" "}
-                          / {formatInteger(row.span_days)}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="tnum text-right font-mono text-xs text-muted-foreground">
-                      {formatInteger(row.versions)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+              }
+              rows={coverage.map((row) => (
+                <TableRow key={row.pair}>
+                  <TableCell>
+                    <PairBadge pair={row.pair} />
+                  </TableCell>
+                  <TableCell className="text-xs">{formatDate(row.first_date)}</TableCell>
+                  <TableCell className="text-xs">{formatDate(row.last_date)}</TableCell>
+                  <TableCell className="tnum text-right font-mono text-xs">
+                    {formatInteger(row.observed_days)}
+                    {row.observed_days === row.span_days ? null : (
+                      <span className="text-[var(--warning)]">
+                        {" "}
+                        / {formatInteger(row.span_days)}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="tnum text-right font-mono text-xs text-muted-foreground">
+                    {formatInteger(row.versions)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            />
             <ReadingNote>
               &ldquo;Versions&rdquo; counts every stored provider payload, including repeat
               observations for a date. The canonical view keeps the latest fetch per pair and
@@ -283,8 +276,10 @@ export default async function MarketPage({
               title="Provider ingestion"
               description="How the history was acquired, by request kind."
             />
-            <Table>
-              <TableHeader>
+            <PaginatedTable
+              pageSize={10}
+              label="request kinds"
+              header={
                 <TableRow>
                   <TableHead>Request kind</TableHead>
                   <TableHead>Status</TableHead>
@@ -293,30 +288,28 @@ export default async function MarketPage({
                   <TableHead>First</TableHead>
                   <TableHead>Latest</TableHead>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rollup.map((row) => (
-                  <TableRow key={`${row.request_kind}-${row.status}`}>
-                    <TableCell className="font-mono text-xs">{row.request_kind}</TableCell>
-                    <TableCell>
-                      <RunStateBadge state={row.status} />
-                    </TableCell>
-                    <TableCell className="tnum text-right font-mono text-xs">
-                      {formatInteger(row.runs)}
-                    </TableCell>
-                    <TableCell className="tnum text-right font-mono text-xs">
-                      {formatInteger(row.rows_written)}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDateTime(row.first_started)}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDateTime(row.last_started)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+              }
+              rows={rollup.map((row) => (
+                <TableRow key={`${row.request_kind}-${row.status}`}>
+                  <TableCell className="font-mono text-xs">{row.request_kind}</TableCell>
+                  <TableCell>
+                    <RunStateBadge state={row.status} />
+                  </TableCell>
+                  <TableCell className="tnum text-right font-mono text-xs">
+                    {formatInteger(row.runs)}
+                  </TableCell>
+                  <TableCell className="tnum text-right font-mono text-xs">
+                    {formatInteger(row.rows_written)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatDateTime(row.first_started)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatDateTime(row.last_started)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            />
 
             <SectionHeading title="Most recent provider runs" />
             <PaginatedTable

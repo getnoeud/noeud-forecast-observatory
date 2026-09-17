@@ -30,14 +30,7 @@ import {
   StatTile,
 } from "@/components/obs/primitives";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   assessmentAgeHours,
   callOf,
@@ -512,30 +505,30 @@ export default async function IntelligencePage({
                 </div>
 
                 {record.adjustment_preview.length ? (
-                  <Table>
-                    <TableHeader>
+                  <PaginatedTable
+                    pageSize={10}
+                    label="proposals"
+                    header={
                       <TableRow>
                         <TableHead>Target date</TableHead>
                         <TableHead className="text-right">Delta</TableHead>
                         <TableHead>Evidence</TableHead>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {record.adjustment_preview.map((proposal, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="text-xs">
-                            {formatDate(proposal.target_date ?? null)}
-                          </TableCell>
-                          <TableCell className="tnum text-right font-mono text-xs font-semibold">
-                            {formatPercent(proposal.delta_pct ?? null, 2, true)}
-                          </TableCell>
-                          <TableCell className="font-mono text-[0.68rem] text-muted-foreground">
-                            {(proposal.evidence_ids ?? []).join(", ") || "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                    }
+                    rows={record.adjustment_preview.map((proposal, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="text-xs">
+                          {formatDate(proposal.target_date ?? null)}
+                        </TableCell>
+                        <TableCell className="tnum text-right font-mono text-xs font-semibold">
+                          {formatPercent(proposal.delta_pct ?? null, 2, true)}
+                        </TableCell>
+                        <TableCell className="font-mono text-[0.68rem] text-muted-foreground">
+                          {(proposal.evidence_ids ?? []).join(", ") || "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  />
                 ) : (
                   <div className="rounded-lg border border-dashed px-4 py-6 text-center">
                     <p className="text-sm font-medium">No adjustment proposed</p>
@@ -585,20 +578,20 @@ export default async function IntelligencePage({
                   title="Gateway call audit"
                   description="Exactly what was requested, what answered, and what it cost."
                 />
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Stage</TableHead>
-                        <TableHead>Model</TableHead>
-                        <TableHead className="text-right">Prompt</TableHead>
-                        <TableHead className="text-right">Output</TableHead>
-                        <TableHead className="text-right">Latency</TableHead>
-                        <TableHead className="text-right">Cost</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {record.calls.map((call) => (
+                <PaginatedTable
+                  pageSize={10}
+                  label="calls"
+                  header={
+                    <TableRow>
+                      <TableHead>Stage</TableHead>
+                      <TableHead>Model</TableHead>
+                      <TableHead className="text-right">Prompt</TableHead>
+                      <TableHead className="text-right">Output</TableHead>
+                      <TableHead className="text-right">Latency</TableHead>
+                      <TableHead className="text-right">Cost</TableHead>
+                    </TableRow>
+                  }
+                  rows={record.calls.map((call) => (
                         <TableRow key={call.response_id ?? call.stage}>
                           <TableCell className="text-xs font-medium">
                             {titleCase(call.stage)}
@@ -626,10 +619,8 @@ export default async function IntelligencePage({
                             {formatUsd(call.cost_usd, 5)}
                           </TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                  ))}
+                />
                 <ReadingNote>
                   <strong>Output allowance is a ceiling, not proof of headroom.</strong>{" "}
                   Length-stopped, tool-call-only and content-filtered responses are rejected even
@@ -686,28 +677,28 @@ export default async function IntelligencePage({
               <CardContent className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
                 <div className="space-y-3">
                   <p className="eyebrow">Spot observations supplied</p>
-                  <Table>
-                    <TableHeader>
+                  <PaginatedTable
+                    pageSize={10}
+                    label="observations"
+                    header={
                       <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead className="text-right">Rate</TableHead>
                         <TableHead className="text-right">Available</TableHead>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {record.context.spots.map((spot) => (
-                        <TableRow key={spot.date}>
-                          <TableCell className="text-xs">{formatDate(spot.date)}</TableCell>
-                          <TableCell className="tnum text-right font-mono text-xs">
-                            {formatRate(spot.rate)}
-                          </TableCell>
-                          <TableCell className="text-right text-[0.68rem] text-muted-foreground">
-                            {formatRelative(spot.available_at, new Date(record.as_of).getTime())}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                    }
+                    rows={record.context.spots.map((spot) => (
+                      <TableRow key={spot.date}>
+                        <TableCell className="text-xs">{formatDate(spot.date)}</TableCell>
+                        <TableCell className="tnum text-right font-mono text-xs">
+                          {formatRate(spot.rate)}
+                        </TableCell>
+                        <TableCell className="text-right text-[0.68rem] text-muted-foreground">
+                          {formatRelative(spot.available_at, new Date(record.as_of).getTime())}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  />
                   <ReadingNote>
                     Availability timestamps matter: a rate observed on a date is not necessarily
                     knowable on that date, and the packet is built point-in-time.
@@ -716,54 +707,52 @@ export default async function IntelligencePage({
 
                 <div className="space-y-3">
                   <p className="eyebrow">Forecast views by target date</p>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Target</TableHead>
-                          <TableHead className="text-right">Weekly q50</TableHead>
-                          <TableHead className="text-right">Daily q50</TableHead>
-                          <TableHead className="text-right">Difference</TableHead>
+                  <PaginatedTable
+                    pageSize={10}
+                    label="target dates"
+                    header={
+                      <TableRow>
+                        <TableHead>Target</TableHead>
+                        <TableHead className="text-right">Weekly q50</TableHead>
+                        <TableHead className="text-right">Daily q50</TableHead>
+                        <TableHead className="text-right">Difference</TableHead>
+                      </TableRow>
+                    }
+                    rows={record.context.weekly.points.map((weeklyPoint) => {
+                      const dailyPoint = record.context.daily.points.find(
+                        (point) => point.date === weeklyPoint.date,
+                      );
+                      const delta = dailyPoint
+                        ? ((dailyPoint.q50 - weeklyPoint.q50) / weeklyPoint.q50) * 100
+                        : null;
+                      return (
+                        <TableRow key={weeklyPoint.date}>
+                          <TableCell className="text-xs">
+                            {formatDate(weeklyPoint.date)}
+                          </TableCell>
+                          <TableCell className="tnum text-right font-mono text-xs">
+                            {formatRate(weeklyPoint.q50)}
+                          </TableCell>
+                          <TableCell className="tnum text-right font-mono text-xs">
+                            {dailyPoint ? formatRate(dailyPoint.q50) : "—"}
+                          </TableCell>
+                          <TableCell
+                            className="tnum text-right font-mono text-xs"
+                            style={{
+                              color:
+                                delta === null
+                                  ? undefined
+                                  : Math.abs(delta) > 1
+                                    ? "var(--warning)"
+                                    : undefined,
+                            }}
+                          >
+                            {formatPercent(delta, 2, true)}
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {record.context.weekly.points.slice(0, 10).map((weeklyPoint) => {
-                          const dailyPoint = record.context.daily.points.find(
-                            (point) => point.date === weeklyPoint.date,
-                          );
-                          const delta = dailyPoint
-                            ? ((dailyPoint.q50 - weeklyPoint.q50) / weeklyPoint.q50) * 100
-                            : null;
-                          return (
-                            <TableRow key={weeklyPoint.date}>
-                              <TableCell className="text-xs">
-                                {formatDate(weeklyPoint.date)}
-                              </TableCell>
-                              <TableCell className="tnum text-right font-mono text-xs">
-                                {formatRate(weeklyPoint.q50)}
-                              </TableCell>
-                              <TableCell className="tnum text-right font-mono text-xs">
-                                {dailyPoint ? formatRate(dailyPoint.q50) : "—"}
-                              </TableCell>
-                              <TableCell
-                                className="tnum text-right font-mono text-xs"
-                                style={{
-                                  color:
-                                    delta === null
-                                      ? undefined
-                                      : Math.abs(delta) > 1
-                                        ? "var(--warning)"
-                                        : undefined,
-                                }}
-                              >
-                                {formatPercent(delta, 2, true)}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                      );
+                    })}
+                  />
                   <ReadingNote>
                     Comparisons are computed by target date: Tuesday&apos;s bootstrap day 1
                     corresponds to Monday&apos;s day 2. These numbers are descriptive context,

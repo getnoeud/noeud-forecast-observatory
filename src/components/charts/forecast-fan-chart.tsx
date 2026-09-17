@@ -51,10 +51,12 @@ function FanTooltip({
   active,
   payload,
   anchorRate,
+  accent,
 }: {
   active?: boolean;
   payload?: { payload: FanRow }[];
   anchorRate?: number | null;
+  accent: string;
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
@@ -80,10 +82,14 @@ function FanTooltip({
           <TooltipRow
             label="Median (q50)"
             value={formatRate(row.median)}
-            color="var(--seq-400)"
+            color={accent}
             emphasis
           />
-          <TooltipRow label="50% band" value={`${formatRate(row.q25)} – ${formatRate(row.q75)}`} />
+          <TooltipRow
+            label="50% band"
+            value={`${formatRate(row.q25)} – ${formatRate(row.q75)}`}
+            color="var(--seq-400)"
+          />
           <TooltipRow label="90% band" value={`${formatRate(row.q05)} – ${formatRate(row.q95)}`} />
           <TooltipRow label="98% band" value={`${formatRate(row.q01)} – ${formatRate(row.q99)}`} />
           {anchorRate && row.median ? (
@@ -136,17 +142,19 @@ function CoverageToggle({
 export function ForecastFanChart({
   rows,
   anchorDate,
+  anchorLabel = "origin",
   anchorRate,
   title,
   description,
   footnote,
   toolbar,
-  accent = "var(--seq-400)",
+  accent = "var(--chart-8)",
   height = 380,
   defaultCoverage = "90",
 }: {
   rows: FanRow[];
   anchorDate?: string | null;
+  anchorLabel?: string;
   anchorRate?: number | null;
   title: React.ReactNode;
   description?: React.ReactNode;
@@ -220,7 +228,7 @@ export function ForecastFanChart({
         />
         <Tooltip
           cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1, strokeDasharray: "3 3" }}
-          content={<FanTooltip anchorRate={anchorRate} />}
+          content={<FanTooltip anchorRate={anchorRate} accent={accent} />}
         />
 
         {visibleBands.map((band) => (
@@ -242,7 +250,7 @@ export function ForecastFanChart({
             strokeDasharray="4 4"
             strokeWidth={1}
             label={{
-              value: "origin",
+              value: anchorLabel,
               position: "insideTopLeft",
               fill: "var(--muted-foreground)",
               fontSize: 10,

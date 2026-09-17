@@ -3,9 +3,12 @@
 import * as React from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
+import { InlineSelect } from "@/components/obs/inline-select";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableHeader } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 /**
  * Pagination for tables whose rows are built on the server.
@@ -29,11 +32,12 @@ export function PaginatedTable({
   className?: string;
   emptyMessage?: string;
 }) {
+  const [size, setSize] = React.useState(pageSize);
   const [page, setPage] = React.useState(0);
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const pageCount = Math.max(1, Math.ceil(rows.length / size));
   const current = Math.min(page, pageCount - 1);
-  const start = current * pageSize;
-  const visible = rows.slice(start, start + pageSize);
+  const start = current * size;
+  const visible = rows.slice(start, start + size);
 
   if (!rows.length) {
     return (
@@ -50,11 +54,25 @@ export function PaginatedTable({
         </Table>
       </div>
 
-      {rows.length > pageSize ? (
+      {rows.length > PAGE_SIZE_OPTIONS[0] ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-          <p className="tnum text-xs text-muted-foreground">
-            {start + 1}–{Math.min(start + pageSize, rows.length)} of {rows.length} {label}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="tnum text-xs text-muted-foreground">
+              {start + 1}–{Math.min(start + size, rows.length)} of {rows.length} {label}
+            </p>
+            <InlineSelect
+              ariaLabel="Rows per page"
+              value={String(size)}
+              onChange={(next) => {
+                setSize(Number(next));
+                setPage(0);
+              }}
+              options={PAGE_SIZE_OPTIONS.map((option) => ({
+                value: String(option),
+                label: `${option} / page`,
+              }))}
+            />
+          </div>
           <div className="flex items-center gap-1.5">
             <Button
               variant="outline"

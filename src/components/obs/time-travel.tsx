@@ -4,6 +4,7 @@ import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeftIcon, ChevronRightIcon, RotateCcwIcon } from "lucide-react";
 
+import { InlineSelect } from "@/components/obs/inline-select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +65,7 @@ export function TimeTravel({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 rounded-lg border bg-card p-1",
+        "flex items-center gap-1 rounded-lg border bg-card p-1",
         pending && "opacity-70",
         className,
       )}
@@ -80,22 +81,18 @@ export function TimeTravel({
         <ChevronLeftIcon className="size-3.5" />
       </Button>
 
-      <label className="sr-only" htmlFor={`time-travel-${param}`}>
-        {label}
-      </label>
-      <select
-        id={`time-travel-${param}`}
+      <InlineSelect
+        ariaLabel={label}
         value={options[index]?.value ?? ""}
-        onChange={(event) => go(event.target.value)}
-        className="h-7 max-w-52 cursor-pointer truncate rounded-md bg-transparent px-1.5 font-mono text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-            {option.hint ? ` · ${option.hint}` : ""}
-          </option>
-        ))}
-      </select>
+        onChange={(next) => go(next)}
+        options={options.map((option) => ({
+          value: option.value,
+          label: option.label,
+          hint: option.hint,
+        }))}
+        className="bg-transparent hover:bg-muted"
+        contentClassName="min-w-[13rem]"
+      />
 
       <Button
         variant="ghost"

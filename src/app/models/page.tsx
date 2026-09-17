@@ -18,14 +18,7 @@ import {
   StatTile,
 } from "@/components/obs/primitives";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   formatBytes,
   formatDate,
@@ -403,8 +396,10 @@ export default async function ModelsPage() {
               description="The only mutable pointers in the model ledger, each requiring a named approver and a gate report."
             />
             {aliases.length ? (
-              <Table>
-                <TableHeader>
+              <PaginatedTable
+                pageSize={10}
+                label="aliases"
+                header={
                   <TableRow>
                     <TableHead>Family</TableHead>
                     <TableHead>Scope</TableHead>
@@ -412,23 +407,21 @@ export default async function ModelsPage() {
                     <TableHead>Approved by</TableHead>
                     <TableHead>Updated</TableHead>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {aliases.map((alias) => (
-                    <TableRow key={`${alias.model_family}-${alias.scope}-${alias.alias}`}>
-                      <TableCell className="font-mono text-xs">{alias.model_family}</TableCell>
-                      <TableCell className="font-mono text-xs">{alias.scope}</TableCell>
-                      <TableCell>
-                        <MonoTag>{alias.alias}</MonoTag>
-                      </TableCell>
-                      <TableCell className="text-xs">{alias.approved_by}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatDateTime(alias.updated_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                }
+                rows={aliases.map((alias) => (
+                  <TableRow key={`${alias.model_family}-${alias.scope}-${alias.alias}`}>
+                    <TableCell className="font-mono text-xs">{alias.model_family}</TableCell>
+                    <TableCell className="font-mono text-xs">{alias.scope}</TableCell>
+                    <TableCell>
+                      <MonoTag>{alias.alias}</MonoTag>
+                    </TableCell>
+                    <TableCell className="text-xs">{alias.approved_by}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatDateTime(alias.updated_at)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              />
             ) : (
               <EmptyState
                 title="No alias has been set"

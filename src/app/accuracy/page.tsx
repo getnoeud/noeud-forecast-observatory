@@ -19,14 +19,7 @@ import {
   StatTile,
 } from "@/components/obs/primitives";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { HORIZON_COHORTS, cohortOf } from "@/lib/analytics";
 import {
   formatDate,
@@ -231,9 +224,11 @@ export default async function AccuracyPage({
               description="Pair-level stability is a separate gate dimension: a large failure on one pair must not be averaged away by the other two."
             />
             <Card>
-              <CardContent className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
+              <CardContent>
+                <PaginatedTable
+                  pageSize={10}
+                  label="pairs"
+                  header={
                     <TableRow>
                       <TableHead>Pair</TableHead>
                       <TableHead className="text-right">Points</TableHead>
@@ -242,39 +237,37 @@ export default async function AccuracyPage({
                       <TableHead className="text-right">90% coverage</TableHead>
                       <TableHead>Worst miss</TableHead>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {perPair.map((row) => (
-                      <TableRow key={row.pair}>
-                        <TableCell>
-                          <PairBadge pair={row.pair} />
-                        </TableCell>
-                        <TableCell className="tnum text-right font-mono text-xs">
-                          {row.count}
-                        </TableCell>
-                        <TableCell className="tnum text-right font-mono text-xs">
-                          {formatPercent(row.mape, 3)}
-                        </TableCell>
-                        <TableCell className="tnum text-right font-mono text-xs">
-                          {formatSignedRate(row.bias)}
-                        </TableCell>
-                        <TableCell className="tnum text-right font-mono text-xs">
-                          {formatPercent(row.coverage, 0)}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {row.worst ? (
-                            <>
-                              {formatPercent(row.worst.absolute_percentage_error, 2)} on{" "}
-                              {formatDate(row.worst.target_date)} (day {row.worst.horizon})
-                            </>
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                  }
+                  rows={perPair.map((row) => (
+                    <TableRow key={row.pair}>
+                      <TableCell>
+                        <PairBadge pair={row.pair} />
+                      </TableCell>
+                      <TableCell className="tnum text-right font-mono text-xs">
+                        {row.count}
+                      </TableCell>
+                      <TableCell className="tnum text-right font-mono text-xs">
+                        {formatPercent(row.mape, 3)}
+                      </TableCell>
+                      <TableCell className="tnum text-right font-mono text-xs">
+                        {formatSignedRate(row.bias)}
+                      </TableCell>
+                      <TableCell className="tnum text-right font-mono text-xs">
+                        {formatPercent(row.coverage, 0)}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {row.worst ? (
+                          <>
+                            {formatPercent(row.worst.absolute_percentage_error, 2)} on{" "}
+                            {formatDate(row.worst.target_date)} (day {row.worst.horizon})
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                />
               </CardContent>
             </Card>
           </section>

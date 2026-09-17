@@ -26,14 +26,7 @@ import {
   StatTile,
 } from "@/components/obs/primitives";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   formatDate,
   formatDateTime,
@@ -183,46 +176,44 @@ export default async function OverviewPage() {
               description="The append-only selected-rate paths the pipeline materialised for each pair."
             />
             {publications.length ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Pair</TableHead>
-                      <TableHead>Mode</TableHead>
-                      <TableHead className="text-right">Points</TableHead>
-                      <TableHead className="text-right">Adjusted</TableHead>
-                      <TableHead className="text-right">Max |Δ|</TableHead>
-                      <TableHead>Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {publications.map((item) => (
-                      <TableRow key={item.snapshot_id}>
-                        <TableCell>
-                          <PairBadge pair={item.pair} />
-                        </TableCell>
-                        <TableCell>
-                          <ModeBadge mode={item.mode} />
-                        </TableCell>
-                        <TableCell className="tnum text-right font-mono text-xs">
-                          {item.point_count}
-                        </TableCell>
-                        <TableCell className="tnum text-right font-mono text-xs">
-                          {item.adjusted_points}
-                        </TableCell>
-                        <TableCell className="tnum text-right font-mono text-xs">
-                          {item.max_abs_delta_pct === null
-                            ? "—"
-                            : formatPercent(item.max_abs_delta_pct, 2)}
-                        </TableCell>
-                        <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-                          {formatRelative(item.created_at)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <PaginatedTable
+                pageSize={10}
+                label="snapshots"
+                header={
+                  <TableRow>
+                    <TableHead>Pair</TableHead>
+                    <TableHead>Mode</TableHead>
+                    <TableHead className="text-right">Points</TableHead>
+                    <TableHead className="text-right">Adjusted</TableHead>
+                    <TableHead className="text-right">Max |Δ|</TableHead>
+                    <TableHead>Created</TableHead>
+                  </TableRow>
+                }
+                rows={publications.map((item) => (
+                  <TableRow key={item.snapshot_id}>
+                    <TableCell>
+                      <PairBadge pair={item.pair} />
+                    </TableCell>
+                    <TableCell>
+                      <ModeBadge mode={item.mode} />
+                    </TableCell>
+                    <TableCell className="tnum text-right font-mono text-xs">
+                      {item.point_count}
+                    </TableCell>
+                    <TableCell className="tnum text-right font-mono text-xs">
+                      {item.adjusted_points}
+                    </TableCell>
+                    <TableCell className="tnum text-right font-mono text-xs">
+                      {item.max_abs_delta_pct === null
+                        ? "—"
+                        : formatPercent(item.max_abs_delta_pct, 2)}
+                    </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                      {formatRelative(item.created_at)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              />
             ) : (
               <EmptyState
                 title="No publication snapshots yet"

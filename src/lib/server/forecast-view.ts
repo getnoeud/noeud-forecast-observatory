@@ -14,6 +14,7 @@ import {
   alignByTargetDate,
   buildFanRows,
   buildTrackRows,
+  buildWalkForwardPoints,
   buildWidthRows,
   summarisePath,
   type DivergenceRow,
@@ -26,6 +27,7 @@ import type {
   EventAssessmentRow,
   ForecastKind,
   ForecastPath,
+  ForecastPoint,
   Observation,
   Pair,
   PublishedSnapshot,
@@ -56,6 +58,14 @@ export type ForecastModel = {
   dailySummary: PathSummary | null;
   weeklyFan: FanRow[];
   dailyFan: FanRow[];
+  /**
+   * Every stored bootstrap origin merged into one continuous path: a past
+   * date keeps whichever vintage most recently forecast it (its immediate
+   * one-day-ahead call, typically) instead of dropping out of view the moment
+   * a newer vintage's forward window moves past it.
+   */
+  dailyWalkForwardFan: FanRow[];
+  dailyWalkForwardPoints: (ForecastPoint & { origin: string })[];
   weeklyWidths: WidthRow[];
   dailyWidths: WidthRow[];
   divergence: DivergenceRow[];
@@ -109,6 +119,10 @@ export const getForecastModel = cache(
     const weekly = pick(weeklyPaths, options.weeklyOrigin);
     const daily = pick(dailyPaths, options.dailyOrigin);
 
+    const dailyWalkForwardPoints = buildWalkForwardPoints(
+      dailyPaths.map((path) => ({ origin: path.vintage.origin, points: path.points })),
+    );
+
     const window = observations.slice(-historyDays);
     const latest = observations[observations.length - 1] ?? null;
     const series = window.map((item) => ({
@@ -136,6 +150,8 @@ export const getForecastModel = cache(
       dailySummary: summarisePath(daily?.points ?? [], latest?.rate ?? null),
       weeklyFan: buildFanRows(series, weekly?.points ?? [], weekly?.vintage.origin ?? null),
       dailyFan: buildFanRows(series, daily?.points ?? [], daily?.vintage.origin ?? null),
+      dailyWalkForwardFan: buildFanRows(series, dailyWalkForwardPoints),
+      dailyWalkForwardPoints,
       weeklyWidths: buildWidthRows(weekly?.points ?? []),
       dailyWidths: buildWidthRows(daily?.points ?? []),
       divergence: alignByTargetDate(weekly?.points ?? [], daily?.points ?? []),

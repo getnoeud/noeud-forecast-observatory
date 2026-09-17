@@ -13,14 +13,7 @@ import {
   StatTile,
 } from "@/components/obs/primitives";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   formatDateTime,
   formatDuration,
@@ -248,8 +241,10 @@ export default async function OperationsPage() {
               title="Provider ingestion"
               description="Every call made against the FX provider, grouped by request kind."
             />
-            <Table>
-              <TableHeader>
+            <PaginatedTable
+              pageSize={10}
+              label="request kinds"
+              header={
                 <TableRow>
                   <TableHead>Kind</TableHead>
                   <TableHead>Status</TableHead>
@@ -257,27 +252,25 @@ export default async function OperationsPage() {
                   <TableHead className="text-right">Rows</TableHead>
                   <TableHead>Latest</TableHead>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rollup.map((row) => (
-                  <TableRow key={`${row.request_kind}-${row.status}`}>
-                    <TableCell className="font-mono text-xs">{row.request_kind}</TableCell>
-                    <TableCell>
-                      <RunStateBadge state={row.status} />
-                    </TableCell>
-                    <TableCell className="tnum text-right font-mono text-xs">
-                      {formatInteger(row.runs)}
-                    </TableCell>
-                    <TableCell className="tnum text-right font-mono text-xs">
-                      {formatInteger(row.rows_written)}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDateTime(row.last_started)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+              }
+              rows={rollup.map((row) => (
+                <TableRow key={`${row.request_kind}-${row.status}`}>
+                  <TableCell className="font-mono text-xs">{row.request_kind}</TableCell>
+                  <TableCell>
+                    <RunStateBadge state={row.status} />
+                  </TableCell>
+                  <TableCell className="tnum text-right font-mono text-xs">
+                    {formatInteger(row.runs)}
+                  </TableCell>
+                  <TableCell className="tnum text-right font-mono text-xs">
+                    {formatInteger(row.rows_written)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatDateTime(row.last_started)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            />
             <ReadingNote>
               A <MonoTag>backfill</MonoTag> run reconstructed a single historical date;{" "}
               <MonoTag>latest</MonoTag> is the daily call; <MonoTag>historical</MonoTag> repairs

@@ -76,7 +76,8 @@ export default async function ForecastPage({
     weeklySummary,
     dailySummary,
     weeklyFan,
-    dailyFan,
+    dailyWalkForwardFan,
+    dailyWalkForwardPoints,
     weeklyWidths,
     dailyWidths,
     divergence,
@@ -303,10 +304,10 @@ export default async function ForecastPage({
                     />
                   </TabsContent>
 
-                  <TabsContent value="daily" className="pt-4">
+                  <TabsContent value="daily" className="space-y-3 pt-4">
                     {daily ? (
                       <HorizonTable
-                        points={daily.points}
+                        points={dailyWalkForwardPoints}
                         anchorRate={latest?.rate ?? null}
                         observed={observed}
                       />
@@ -338,6 +339,7 @@ export default async function ForecastPage({
                           anchorRate={latest?.rate ?? null}
                           observed={observed}
                           published={publication.points}
+                          bootstrap={dailyWalkForwardPoints}
                         />
                       </>
                     ) : null}
@@ -350,17 +352,20 @@ export default async function ForecastPage({
           {daily ? (
             <section className="grid gap-4 xl:grid-cols-2">
               <ForecastFanChart
-                rows={dailyFan}
-                anchorDate={daily.vintage.origin}
+                rows={dailyWalkForwardFan}
+                anchorDate={latest?.observed_on ?? null}
+                anchorLabel="today"
                 anchorRate={latest?.rate ?? null}
                 accent="var(--chart-2)"
                 title={
                   <span className="flex flex-wrap items-center gap-2">
                     Daily bootstrap path
-                    <MonoTag>origin {formatDate(daily.vintage.origin)}</MonoTag>
+                    <MonoTag>walk-forward</MonoTag>
+                    <MonoTag>current origin {formatDate(daily.vintage.origin)}</MonoTag>
                   </span>
                 }
-                description="1,000 block-bootstrap paths resampled in seven-day blocks from the trailing three years of returns."
+                description="1,000 block-bootstrap paths resampled in seven-day blocks from the trailing three years of returns. Every stored daily vintage is stitched together by target date, so a matured prediction stays on the chart instead of vanishing once tomorrow's vintage supersedes it."
+                footnote="Left of today, each date shows whichever vintage most recently forecast it — typically yesterday's one-day-ahead call, which is why the band hugs the observed line closely there. Right of today is the current 30-day forward path."
                 height={320}
               />
               <UncertaintyGrowthChart rows={dailyWidths} accent="var(--chart-2)" height={320} />

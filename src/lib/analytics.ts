@@ -520,3 +520,32 @@ export function buildTrackRows(
 
   return Array.from(rows.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
+
+/**
+ * Merge every stored vintage of one model family into a single continuous
+ * forecast path, one row per target date, carrying the full nine-quantile
+ * distribution rather than just the median and one band.
+ *
+ * The daily bootstrap is re-issued every day, so its "current" 30-day window
+ * only ever looks forward from today — a date that has already matured drops
+ * out of that window entirely, even though an earlier vintage did forecast it.
+ * This walks every stored origin oldest-to-newest and lets each date keep the
+ * most recently issued forecast that covered it (usually the immediate
+ * one-day-ahead call for a past date, and today's fresh 30-day path for the
+ * future) so a matured prediction stays visible instead of disappearing the
+ * moment a newer vintage supersedes it.
+ */
+export function buildWalkForwardPoints(
+  paths: { origin: string; points: ForecastPoint[] }[],
+): (ForecastPoint & { origin: string })[] {
+  const byDate = new Map<string, ForecastPoint & { origin: string }>();
+  const ordered = [...paths].sort((a, b) => a.origin.localeCompare(b.origin));
+  for (const path of ordered) {
+    for (const point of path.points) {
+      byDate.set(point.target_date, { ...point, origin: path.origin });
+    }
+  }
+  return Array.from(byDate.values()).sort((a, b) =>
+    a.target_date.localeCompare(b.target_date),
+  );
+}

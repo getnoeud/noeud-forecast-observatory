@@ -219,7 +219,7 @@ alone.
 
 ## Related
 
-- [`../noeud-fx-forecast-intelligence/docs/supabase-setup-runbook.md`](../noeud-fx-forecast-intelligence/docs/supabase-setup-runbook.md)
-- [`../noeud-fx-forecast-intelligence/docs/event-intelligence.md`](../noeud-fx-forecast-intelligence/docs/event-intelligence.md)
-- [`../noeud-fx-forecast-intelligence/docs/model-gates.md`](../noeud-fx-forecast-intelligence/docs/model-gates.md)
-- [`../noeud-fx-forecast-intelligence/supabase/migrations/`](../noeud-fx-forecast-intelligence/supabase/migrations/)
+- [`../noeud-fx-forecast-intelligence/docs/supabase-setup-runbook.md`](https://github.com/getnoeud/noeud-fx-forecast-intelligence/blob/main/docs/supabase-setup-runbook.md)
+- [`../noeud-fx-forecast-intelligence/docs/event-intelligence.md`](https://github.com/getnoeud/noeud-fx-forecast-intelligence/blob/main/docs/event-intelligence.md)
+- [`../noeud-fx-forecast-intelligence/docs/model-gates.md`](https://github.com/getnoeud/noeud-fx-forecast-intelligence/blob/main/docs/model-gates.md)
+- [`../noeud-fx-forecast-intelligence/supabase/migrations/`](https://github.com/getnoeud/noeud-fx-forecast-intelligence/tree/main/supabase/migrations)

@@ -6,16 +6,16 @@ service that produces probabilistic 30-calendar-day forecasts of USD/GHS,
 EUR/GHS and GBP/GHS.
 
 The observatory exists so the team can watch a live experiment run for weeks
-without reading the database by hand: what the models are forecasting, what the
-event-intelligence layer concluded and why, how yesterday's forecasts scored
-against today's rate, and whether the pipeline is actually running.
+without reading the database by hand: what the models are forecasting, what
+the event-intelligence layer concluded and why, how yesterday's forecasts
+scored against today's rate, and whether the pipeline is actually running.
 
 It is read-only. Nothing on this dashboard writes to the forecasting database.
 
 > **Replaces the previous observatory.** This app used to read the halted
 > `noeud_ml_forecast` FastAPI backend. That contract, its sentiment tables and
-> its `7d` horizon focus are gone; the app now reads the
-> `noeud_forecast` Supabase schema directly.
+> its `7d` horizon focus are gone; the app now reads the `noeud_forecast`
+> Supabase schema directly.
 
 ## Pages
 
@@ -30,19 +30,98 @@ It is read-only. Nothing on this dashboard writes to the forecasting database.
 | `/operations` | Pipeline runs, provider ingestion, and the leases that keep work exactly-once |
 | `/methodology` | How every number on the dashboard is produced |
 
+---
+
+### Overview
+
+Latest rate, day-on-day change, the forward path per pair, and the event
+decision that landed for each one — the one screen you check first.
+
+![Overview](screenshots/overview.png)
+
+### Forward Forecast — the centrepiece
+
+The full nine-quantile fan for the next 30 calendar days, with a 50 / 90 / 98%
+coverage toggle. Observed history sits to the left of the origin marker; target
+dates that have already matured stay drawn on the observed line *inside* the
+fan, so a miss is visible the day after issuance instead of at the end of the
+month.
+
+![Forward Forecast](screenshots/forward-forecast.png)
+
+Below the main fan, an **"Observed against both model views"** chart puts the
+realised rate, the Chronos median and the bootstrap median on one axis by
+target date — left of the marker all three are settled, right of it only the
+models have an opinion. Because the daily bootstrap is re-issued every day,
+its fan chart and its "path in numbers" table are built **walk-forward**: each
+past date keeps whichever stored vintage most recently forecast it (typically
+yesterday's one-day-ahead call), so a matured prediction stays on the chart
+instead of vanishing the moment tomorrow's vintage supersedes it. A `Chronos
+origin` picker lets you reopen any past Monday vintage exactly as it was
+issued.
+
+### Forecast Accuracy
+
+Matured forecast points scored against canonical observations: error by
+horizon cohort, realised coverage of the 90% interval, signed bias, and a
+calibration scatter of forecast vs. realised — plus the pipeline's own audited
+evaluation ledger where it exists.
+
+![Forecast Accuracy](screenshots/forecast-accuracy.png)
+
+### Event Intelligence
+
+The bounded two-call LLM workflow: cost and latency per stage, the evidence
+composition, and — for any recorded day, via the assessment-day picker and the
+decision-history strip — the full reasoning, evidence table (with what was
+rejected and why), and gateway call audit behind one pair's decision.
+
+![Event Intelligence](screenshots/event-intelligence.png)
+
+### Model Lineage
+
+What produced each forecast, how it is identified (pinned revision, verified
+weights hash, calibration recipe), and where it sits in the promotion state
+machine — training → candidate → gate → shadow → champion. No alias moves on
+its own; a failed gate stays part of the record.
+
+![Model Lineage](screenshots/model-lineage.png)
+
+### Market History
+
+Five years of calendar-day rates: an indexed multi-pair view, rolling
+volatility, return correlation, and a table of single-day moves large enough
+to be a suspect provider print rather than a market event.
+
+![Market History](screenshots/market-history.png)
+
+### Operations
+
+Pipeline runs with their task result summaries, the event/retrieval leases
+that keep work exactly-once, provider ingestion by request kind, and a live
+row count for every table in the schema.
+
+![Operations](screenshots/operations.png)
+
+---
+
 ### Things worth knowing about the UI
 
-- **Forward forecasting is the centrepiece.** The fan chart draws all nine
-  quantiles, with a 50 / 90 / 98% coverage toggle. Target dates that have
-  already matured stay on the observed line *inside* the fan, so a miss is
-  visible the day after issuance rather than at the end of the month.
-- **The tracking chart** puts the observed rate, the Chronos median and the
-  bootstrap median on one axis by target date. Left of the marker all three are
-  settled; right of it only the models have an opinion.
 - **Time travel.** `/forecast` has a Chronos-origin selector and
   `/intelligence` has an assessment-day selector, both URL-driven
   (`?origin=…`, `?date=…`), so any historical state is linkable. The decision
-  history strip on `/intelligence` doubles as navigation.
+  history strip on `/intelligence` doubles as navigation — click a cell to
+  reopen that day.
+- **Walk-forward series.** The daily bootstrap is re-issued every day, so a
+  single vintage only ever looks forward. Its fan chart and horizon table are
+  instead built from `buildWalkForwardPoints` (`src/lib/analytics.ts`), which
+  merges every stored origin and lets each date keep its most recently issued
+  forecast — a matured prediction is never dropped just because a newer
+  vintage's window moved past it.
+- **Every table is paginated**, with its own rows-per-page control
+  (10 / 25 / 50 / 100), via the shared `PaginatedTable` component. The
+  dropdowns themselves — page size, time-travel pickers — use the app's own
+  styled `Select`, not a bare native `<select>`.
 - **Failed reads are shown as failed reads.** There is no fixture fallback: a
   dashboard that silently mixes live and mock rows is worse than one that is
   visibly down.
@@ -50,9 +129,9 @@ It is read-only. Nothing on this dashboard writes to the forecasting database.
 ## Data access
 
 The `noeud_forecast` schema is deliberately **absent from the Supabase Data
-API's exposed-schema list**, so no browser key can reach it and PostgREST is not
-an option. The observatory therefore reads PostgreSQL directly from the Next.js
-server and ships rendered HTML:
+API's exposed-schema list**, so no browser key can reach it and PostgREST is
+not an option. The observatory therefore reads PostgreSQL directly from the
+Next.js server and ships rendered HTML:
 
 ```text
 Server Component  ->  lib/server/views.ts | forecast-view.ts   (page models)
@@ -61,9 +140,10 @@ Server Component  ->  lib/server/views.ts | forecast-view.ts   (page models)
                   ->  Supabase session pooler (IPv4, TLS)
 ```
 
-`lib/analytics.ts` holds every derivation (fan rows, interval widths, skew,
-rolling volatility, correlation, accuracy rollups) as pure functions shared by
-server and client, so charts never recompute anything the tables disagree with.
+`lib/analytics.ts` holds every derivation (fan rows, walk-forward merges,
+interval widths, skew, rolling volatility, correlation, accuracy rollups) as
+pure functions shared by server and client, so charts never recompute anything
+the tables disagree with.
 
 ### Environment
 
@@ -130,9 +210,11 @@ alone.
 - `src/lib/server/db.ts` — connection pool, reload-aware in dev
 - `src/lib/server/queries.ts` — every SQL read, one function per question
 - `src/lib/server/views.ts`, `forecast-view.ts` — page-level models
-- `src/lib/analytics.ts` — derivations shared by server and client
+- `src/lib/analytics.ts` — derivations shared by server and client, including
+  the walk-forward merge
 - `src/components/charts/` — the chart library
-- `src/components/obs/` — observatory-specific UI (badges, tables, selectors)
+- `src/components/obs/` — observatory-specific UI (badges, paginated tables,
+  the styled `InlineSelect`, time-travel pickers)
 - `src/app/methodology/page.tsx` — the written explanation of everything above
 
 ## Related

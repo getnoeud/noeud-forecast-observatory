@@ -1,291 +1,143 @@
 # Noeud Forecast Observatory
 
-Internal dashboard for tracking how Noeud forecasts perform in the real world after they mature against actual market data.
+Internal monitoring surface for
+[**Noeud FX Forecast Intelligence**](../noeud-fx-forecast-intelligence) — the
+service that produces probabilistic 30-calendar-day forecasts of USD/GHS,
+EUR/GHS and GBP/GHS.
 
-The observatory is intentionally small and practical for beta:
+The observatory exists so the team can watch a live experiment run for weeks
+without reading the database by hand: what the models are forecasting, what the
+event-intelligence layer concluded and why, how yesterday's forecasts scored
+against today's rate, and whether the pipeline is actually running.
 
-- it reads data from the `noeud_ml_forecast` FastAPI backend
-- it does not connect to Supabase directly
-- it focuses on `7d` first, while remaining horizon-aware for future `30d+` rollout
-- it helps the ML team audit forecast quality, sentiment contribution, and recent forecast issuance behavior
+It is read-only. Nothing on this dashboard writes to the forecasting database.
 
-## What This App Does
+> **Replaces the previous observatory.** This app used to read the halted
+> `noeud_ml_forecast` FastAPI backend. That contract, its sentiment tables and
+> its `7d` horizon focus are gone; the app now reads the
+> `noeud_forecast` Supabase schema directly.
 
-The observatory answers questions like:
+## Pages
 
-- how many forecasts have matured and been evaluated
-- what the current directional hit rate, MAE, RMSE, and bias look like
-- whether sentiment-adjusted forecasts are beating the quant-only baseline
-- how one pair is performing over time
-- what the latest forecast path and recent forecast issuances looked like
+| Route | What it answers |
+| --- | --- |
+| `/` | What did the pipeline produce today, across all three pairs? |
+| `/forecast` | What is the live 30-day distribution, and what did each model say about each date? |
+| `/accuracy` | How are matured forecasts scoring against the rates that actually printed? |
+| `/intelligence` | What did the LLM read, reject, and conclude — on any recorded day? |
+| `/models` | Which model produced this, how is it identified, and where is it in the promotion state machine? |
+| `/market` | Five years of calendar-day rates, their diagnostics, and any suspect prints |
+| `/operations` | Pipeline runs, provider ingestion, and the leases that keep work exactly-once |
+| `/methodology` | How every number on the dashboard is produced |
 
-Main pages:
+### Things worth knowing about the UI
 
-- `/`
-  - overview dashboard
-- `/pairs/[pair]`
-  - pair review page
-- `/reports/weekly`
-  - performance reports
-- `/help`
-  - explanations of the evaluation pipeline and metrics
-- `/settings`
-  - lightweight internal settings page
+- **Forward forecasting is the centrepiece.** The fan chart draws all nine
+  quantiles, with a 50 / 90 / 98% coverage toggle. Target dates that have
+  already matured stay on the observed line *inside* the fan, so a miss is
+  visible the day after issuance rather than at the end of the month.
+- **The tracking chart** puts the observed rate, the Chronos median and the
+  bootstrap median on one axis by target date. Left of the marker all three are
+  settled; right of it only the models have an opinion.
+- **Time travel.** `/forecast` has a Chronos-origin selector and
+  `/intelligence` has an assessment-day selector, both URL-driven
+  (`?origin=…`, `?date=…`), so any historical state is linkable. The decision
+  history strip on `/intelligence` doubles as navigation.
+- **Failed reads are shown as failed reads.** There is no fixture fallback: a
+  dashboard that silently mixes live and mock rows is worse than one that is
+  visibly down.
 
-### Dashboard Screenshots
+## Data access
 
-![](./screenshots/overview-page.png)
-![](./screenshots/report-page.png)
-![](./screenshots/pair-review-page.png)
-![](./screenshots/pair-review-page-1.png)
-![](./screenshots/pair-review-page-sentiment.png)
-![](./screenshots/pair-review-page-sentiment-1.png)
-![](./screenshots/pair-review-page-sentiment-2.png)
-
-## Architecture
-
-```mermaid
-flowchart LR
-    A[Price Ingestion] --> B[raw_price_data]
-    C[Inference Flow] --> D[predictions]
-    B --> E[Evaluation Flow]
-    D --> E
-    E --> F[forecast_evaluations]
-    F --> G[FastAPI /evaluation/*]
-    D --> G
-    H[FastAPI /forecast/history/*] --> G
-    I[FastAPI /sentiment/*] --> G
-    G --> J[Noeud Forecast Observatory]
-```
-
-## Repository Setup
-
-This app lives as a separate Next.js project alongside the main forecasting backend.
-
-Expected sibling layout:
+The `noeud_forecast` schema is deliberately **absent from the Supabase Data
+API's exposed-schema list**, so no browser key can reach it and PostgREST is not
+an option. The observatory therefore reads PostgreSQL directly from the Next.js
+server and ships rendered HTML:
 
 ```text
-noeud/
-  noeud_ml_forecast/
-  noeud-forecast-observatory/
+Server Component  ->  lib/server/views.ts | forecast-view.ts   (page models)
+                  ->  lib/server/queries.ts                    (typed SQL reads)
+                  ->  lib/server/db.ts                         (pg Pool, server-only)
+                  ->  Supabase session pooler (IPv4, TLS)
 ```
 
-## Tech Stack
+`lib/analytics.ts` holds every derivation (fan rows, interval widths, skew,
+rolling volatility, correlation, accuracy rollups) as pure functions shared by
+server and client, so charts never recompute anything the tables disagree with.
 
-- Next.js App Router
-- TypeScript
-- shadcn/ui
-- Recharts via shadcn chart wrappers
-- TanStack Query
-- TanStack Table
-- Zustand
-- Axios
+### Environment
 
-## Requirements
-
-- Node.js 20+
-- npm
-- running `noeud_ml_forecast` backend
-
-## Environment Variables
-
-Copy `.env.example` to `.env.local` or `.env`.
-
-```bash
-cp .env.example .env.local
-```
-
-Current variables:
+Copy `.env.example` to `.env` and fill it in.
 
 ```env
-# Observatory auth shared secret
-OBSERVATORY_SHARED_SECRET=change-me-in-production
-OBSERVATORY_COOKIE_SECRET=change-me-cookie-secret
-
-# FastAPI backend base URL
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+OBSERVATORY_SHARED_SECRET=...
+OBSERVATORY_COOKIE_SECRET=...
+OBSERVATORY_DATABASE_URL=postgresql://<role>.<project-ref>:<password>@<pooler-host>:5432/postgres
+OBSERVATORY_DB_SCHEMA=noeud_forecast
+OBSERVATORY_DB_POOL_MAX=4
+NEXT_PUBLIC_SUPABASE_PROJECT_REF=...
+NEXT_PUBLIC_FORECAST_TIMEZONE=Africa/Accra
 ```
 
 Notes:
 
-- `OBSERVATORY_SHARED_SECRET`
-  - shared password used by the internal login form
-- `OBSERVATORY_COOKIE_SECRET`
-  - used to sign the HTTP-only session cookie
-- `NEXT_PUBLIC_API_BASE_URL`
-  - points to the running `noeud_ml_forecast` API
+- Use the **session pooler** URI from Supabase → Connect. The direct
+  `db.<ref>.supabase.co` host is IPv6-only and will not resolve on most
+  networks.
+- `sslmode` in the URI is stripped at runtime; TLS is configured explicitly
+  because Supabase's chain is not in the local trust store.
+- **Use the least-privilege reader login.** The backend repo provisions
+  `noeud_forecast_api` via `noeud-forecast provision-postgres-roles`; point
+  `OBSERVATORY_DATABASE_URL` at that role rather than the database owner. The
+  observatory only ever issues `SELECT`.
+- `OBSERVATORY_DATABASE_URL` is server-only and is never sent to the browser.
 
-The API client also supports `NEXT_PUBLIC_FORECAST_API_BASE_URL` as a fallback, but `NEXT_PUBLIC_API_BASE_URL` is the preferred name going forward.
-
-## Install And Run
-
-From `noeud-forecast-observatory`:
+## Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open:
-
-- `http://localhost:3000`
-
-You will be redirected to the internal login page first.
-
-## Backend Dependency
-
-This dashboard depends on the forecasting backend being up and returning data from these endpoints:
-
-- `GET /evaluation/overview`
-- `GET /evaluation/history/{currency_pair}`
-- `GET /evaluation/reports/weekly`
-- `GET /evaluation/export`
-- `GET /forecast/history/{currency_pair}`
-- `GET /sentiment/{currency_pair}/history`
-
-If the backend is unavailable, the overview page will show a retry state instead of metrics.
-
-## Getting Data Into The Dashboard
-
-The observatory only becomes useful when the backend has:
-
-- forecast history in `predictions`
-- matured evaluation rows in `forecast_evaluations`
-
-For a detailed explanation of that pipeline, read:
-
-- `../noeud_ml_forecast/docs/EVALUATION_PIPELINE_PLAYBOOK.md`
-
-### Real data path
-
-Normal production flow:
-
-1. ingest latest market prices
-2. run inference and save new predictions
-3. evaluate matured forecasts
-4. read those matured rows through `/evaluation/*`
-
-### Demo bootstrap path
-
-If you want data in the dashboard before real forecasts mature, seed demo rows from the backend repo:
+Open `http://localhost:3000`. You will be asked for the shared observatory key
+(`OBSERVATORY_SHARED_SECRET`) before anything renders.
 
 ```bash
-cd ../noeud_ml_forecast
-uv run python scripts/manage_demo_evaluations.py seed --pairs USDGHS GHSKES --horizon 7 --count 12
-```
-
-To clear the demo data:
-
-```bash
-cd ../noeud_ml_forecast
-uv run python scripts/manage_demo_evaluations.py clear
-```
-
-## Useful Commands
-
-```bash
-npm run dev
-npm run lint
 npm run build
 npm run start
+npm run lint
 ```
 
-## Authentication Model
+## Auth
 
-This is an internal dashboard for beta, not a public app.
+Shared-secret login, HMAC-signed HTTP-only session cookie, route protection in
+`src/proxy.ts`. Deliberately simple: this is an internal dashboard for a
+time-boxed experiment, not a product surface. Full identity is out of scope.
 
-Current auth model:
+## Stack
 
-- shared secret login
-- HTTP-only signed session cookie
-- route protection via `src/proxy.ts`
+Next.js App Router (16) · TypeScript · shadcn/ui on Base UI · Recharts ·
+Tailwind v4 · `pg`.
 
-This is intentionally simple for the current stage. Full identity/authz is deferred.
+Charts follow a fixed, validated categorical palette (`src/app/globals.css`):
+slots 1–3 are the pair identities and clear the colour-vision-deficiency and
+normal-vision separation floors in both light and dark mode; the four status
+colours are reserved and always ship with an icon and a label, never colour
+alone.
 
-## Current Feature Scope
+## Key files
 
-Implemented:
+- `src/lib/server/db.ts` — connection pool, reload-aware in dev
+- `src/lib/server/queries.ts` — every SQL read, one function per question
+- `src/lib/server/views.ts`, `forecast-view.ts` — page-level models
+- `src/lib/analytics.ts` — derivations shared by server and client
+- `src/components/charts/` — the chart library
+- `src/components/obs/` — observatory-specific UI (badges, tables, selectors)
+- `src/app/methodology/page.tsx` — the written explanation of everything above
 
-- overview KPI cards
-- rolling performance chart
-- pair leaderboard, direction analysis, and sentiment impact tables
-- pair review pages
-- recent forecast issuance monitoring
-- sentiment overlay charts
-- weekly performance report page
-- CSV export from the reports view
-- help/settings pages
-- frontend CI for pull requests
+## Related
 
-Still intentionally lightweight:
-
-- no direct Supabase client in the frontend
-- no public/investor mode
-- no full account system
-- no monthly locked reporting flow yet
-
-## Frontend CI
-
-GitHub Actions workflow:
-
-- `.github/workflows/frontend-ci.yml`
-
-Runs on pull requests targeting:
-
-- `dev`
-- `staging`
-- `master`
-
-Checks:
-
-- `npm ci`
-- `npm run lint`
-- `npm run build`
-
-## Troubleshooting
-
-### Dashboard loads but shows no evaluation data
-
-Likely causes:
-
-- backend API is not running
-- `NEXT_PUBLIC_API_BASE_URL` points to the wrong backend
-- you have predictions but no matured evaluations yet
-
-Check:
-
-- `../noeud_ml_forecast/docs/EVALUATION_PIPELINE_PLAYBOOK.md`
-
-### Pair pages or reports load but look sparse
-
-That usually means:
-
-- only a small seeded dataset exists
-- only one horizon has been evaluated
-- the selected pair has little or no matured history yet
-
-### Login keeps failing
-
-Check:
-
-- `OBSERVATORY_SHARED_SECRET`
-- `OBSERVATORY_COOKIE_SECRET`
-- whether your browser is accepting cookies for local development
-
-## Key Files
-
-- `src/app/page.tsx`
-- `src/app/pairs/[pair]/page.tsx`
-- `src/app/reports/weekly/page.tsx`
-- `src/components/chart-area-interactive.tsx`
-- `src/components/dashboard/pair-detail-dashboard.tsx`
-- `src/hooks/use-observatory.ts`
-- `src/lib/api.ts`
-- `src/store/observatory-store.ts`
-- `src/proxy.ts`
-
-## Related Docs
-
-- `../noeud_ml_forecast/docs/EVALUATION_PIPELINE_PLAYBOOK.md`
-- `../noeud_ml_forecast/docs/API_CONTRACTS.md`
-- `../noeud_ml_forecast/docs/TECHNICAL_ARCHITECTURE.md`
+- [`../noeud-fx-forecast-intelligence/docs/supabase-setup-runbook.md`](../noeud-fx-forecast-intelligence/docs/supabase-setup-runbook.md)
+- [`../noeud-fx-forecast-intelligence/docs/event-intelligence.md`](../noeud-fx-forecast-intelligence/docs/event-intelligence.md)
+- [`../noeud-fx-forecast-intelligence/docs/model-gates.md`](../noeud-fx-forecast-intelligence/docs/model-gates.md)
+- [`../noeud-fx-forecast-intelligence/supabase/migrations/`](../noeud-fx-forecast-intelligence/supabase/migrations/)

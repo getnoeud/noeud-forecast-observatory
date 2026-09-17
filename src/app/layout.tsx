@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Inter, Space_Grotesk } from "next/font/google";
 import { Toaster } from "sonner";
 
-import { QueryProvider } from "@/components/providers/query-provider";
+import { AppShell } from "@/components/shell/app-shell";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { probeDataSource } from "@/lib/server/db";
 
 import "./globals.css";
+
+const inter = Inter({
+  variable: "--font-inter",
+  display: "swap",
+  subsets: ["latin"],
+});
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -21,26 +28,31 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Noeud Observatory",
+  title: "Noeud Forecast Observatory",
   description:
-    "Internal dashboard for evaluating forecast performance against realized FX rates.",
+    "Internal observatory for the Noeud FX Forecast Intelligence pipeline: forward 30-day probabilistic forecasts, event intelligence, and model lineage.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
+  const status = await probeDataSource();
+
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
+      className={`${inter.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
     >
       <body className="font-sans antialiased">
         <ThemeProvider>
-          <QueryProvider>{children}</QueryProvider>
-          <Toaster />
+          <AppShell
+            status={status}
+            projectRef={process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF}
+          >
+            {children}
+          </AppShell>
+          <Toaster position="bottom-right" />
         </ThemeProvider>
       </body>
     </html>

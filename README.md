@@ -1,7 +1,7 @@
 # Noeud Forecast Observatory
 
 Internal monitoring surface for
-[**Noeud FX Forecast Intelligence**](../noeud-fx-forecast-intelligence) — the
+[**Noeud FX Forecast Intelligence**](https://github.com/getnoeud/noeud-fx-forecast-intelligence) — the
 service that produces probabilistic 30-calendar-day forecasts of USD/GHS,
 EUR/GHS and GBP/GHS.
 

@@ -22,6 +22,7 @@ import {
   TooltipRow,
   TooltipShell,
 } from "@/components/charts/frame";
+import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { PAIR_COLOR_VAR } from "@/components/obs/badges";
 import { formatDate, formatInteger, formatPercent, formatRate, formatShortDate } from "@/lib/format";
 import { PAIRS, type Pair } from "@/lib/types";
@@ -216,7 +217,7 @@ export function RealisedErrorChart({
     <ChartFrame
       title="Realised error on matured target dates"
       description="Observed rate minus the forecast median, in percent. Above zero the cedi came in weaker than forecast."
-      legend={PAIR_LEGEND}
+      legend={[...PAIR_LEGEND, ...(hasWeekendBands(data.map((r) => String(r.target_date))) ? [WEEKEND_LEGEND] : [])]}
       height={height}
       footnote="This is the observatory's own join of forecast points against canonical observations, so the first days of a live vintage are visible before the pipeline's audited evaluation ledger is written."
     >
@@ -237,6 +238,7 @@ export function RealisedErrorChart({
           width={50}
           tickFormatter={(value: number) => `${value > 0 ? "+" : ""}${value.toFixed(2)}%`}
         />
+        {weekendBands(data.map((r) => String(r.target_date)))}
         <ReferenceLine y={0} stroke="var(--border)" />
         <Tooltip
           cursor={{ fill: "var(--muted)", fillOpacity: 0.5 }}

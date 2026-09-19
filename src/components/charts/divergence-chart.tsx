@@ -21,6 +21,7 @@ import {
   TooltipRow,
   TooltipShell,
 } from "@/components/charts/frame";
+import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import type { DivergenceRow } from "@/lib/analytics";
 import { formatDate, formatPercent, formatRate, formatShortDate } from "@/lib/format";
 
@@ -48,6 +49,7 @@ export function ModelComparisonChart({
       legend={[
         { label: "Weekly Chronos-2 median", color: WEEKLY, shape: "line" },
         { label: "Daily bootstrap median", color: DAILY, shape: "dash" },
+        ...(hasWeekendBands(data.map((row) => row.target_date)) ? [WEEKEND_LEGEND] : []),
       ]}
       height={height}
       footnote="Only dates present in both vintages can be compared; the bootstrap is re-issued every day, so it runs further into the future than the Monday path."
@@ -56,6 +58,7 @@ export function ModelComparisonChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="target_date"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -96,6 +99,7 @@ export function ModelComparisonChart({
             );
           }}
         />
+        {weekendBands(data.map((row) => row.target_date))}
         {/*
           Weekly is solid and drawn first; daily is dashed and drawn on top so
           its gaps reveal weekly beneath. When the two series nearly coincide
@@ -142,6 +146,7 @@ export function DivergenceBarChart({
       legend={[
         { label: "Bootstrap above Chronos", color: "var(--chart-2)", shape: "area" },
         { label: "Bootstrap below Chronos", color: "var(--chart-1)", shape: "area" },
+        ...(hasWeekendBands(data.map((row) => row.target_date)) ? [WEEKEND_LEGEND] : []),
       ]}
       height={height}
       footnote="The event-intelligence packet treats a difference of this size as descriptive context, not as a trained break detector. The publication policy only acts above 1% absolute, and only on dates inside the current issuance week."
@@ -189,6 +194,7 @@ export function DivergenceBarChart({
             );
           }}
         />
+        {weekendBands(data.map((row) => row.target_date))}
         <Bar dataKey="deltaPct" radius={[2, 2, 2, 2]} isAnimationActive={false}>
           {data.map((row) => (
             <Cell

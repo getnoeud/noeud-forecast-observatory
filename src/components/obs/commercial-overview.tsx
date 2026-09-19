@@ -100,7 +100,7 @@ export function CommercialOverview({
                     </div>
                   </dl>
 
-                  <ul className="flex items-center gap-4 text-[0.7rem] text-muted-foreground">
+                  <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] whitespace-nowrap text-muted-foreground">
                     <li className="flex items-center gap-1.5">
                       <span aria-hidden className="h-0.5 w-4 rounded-full bg-foreground" />
                       Provider
@@ -115,6 +115,13 @@ export function CommercialOverview({
                         className="h-2.5 w-3.5 rounded-[2px] bg-[var(--chart-1)] opacity-30"
                       />
                       Bank range
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="h-2.5 w-3.5 rounded-[2px] bg-muted-foreground opacity-[0.16]"
+                      />
+                      Weekend
                     </li>
                   </ul>
 

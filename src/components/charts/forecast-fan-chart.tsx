@@ -20,6 +20,7 @@ import {
   TooltipShell,
   type LegendEntry,
 } from "@/components/charts/frame";
+import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { FAN_BANDS, niceDomain, type FanRow } from "@/lib/analytics";
 import { formatDate, formatPercent, formatRate, formatShortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -181,6 +182,9 @@ export function ForecastFanChart({
     return niceDomain(values, 6);
   }, [rows, active]);
 
+  const dates = React.useMemo(() => rows.map((row) => row.date), [rows]);
+  const showWeekends = hasWeekendBands(dates);
+
   const legend: LegendEntry[] = [
     { label: "Observed rate", color: "var(--foreground)", shape: "line" },
     { label: "Forecast median", color: accent, shape: "dash" },
@@ -191,6 +195,7 @@ export function ForecastFanChart({
     ...(coverage === "98"
       ? ([{ label: "98% band", color: "var(--seq-100)", shape: "area" }] as LegendEntry[])
       : []),
+    ...(showWeekends ? [WEEKEND_LEGEND] : []),
   ];
 
   return (
@@ -211,6 +216,7 @@ export function ForecastFanChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="date"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -231,6 +237,7 @@ export function ForecastFanChart({
           content={<FanTooltip anchorRate={anchorRate} accent={accent} />}
         />
 
+        {weekendBands(dates)}
         {visibleBands.map((band) => (
           <Area
             key={band.key}

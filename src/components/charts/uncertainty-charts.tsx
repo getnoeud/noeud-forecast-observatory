@@ -23,6 +23,7 @@ import {
   TooltipRow,
   TooltipShell,
 } from "@/components/charts/frame";
+import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { niceDomain, type WidthRow } from "@/lib/analytics";
 import { formatDate, formatPercent, formatRate } from "@/lib/format";
 
@@ -48,6 +49,7 @@ export function UncertaintyGrowthChart({
       legend={[
         { label: "90% interval (q05–q95)", color: accent, shape: "area" },
         { label: "50% interval (q25–q75)", color: "var(--seq-600)", shape: "area" },
+        ...(hasWeekendBands(rows.map((r) => r.target_date)) ? [WEEKEND_LEGEND] : []),
       ]}
       height={height}
       footnote="Widening with horizon is expected. A step change at a single day usually points at a calibration cohort boundary rather than the market."
@@ -62,6 +64,7 @@ export function UncertaintyGrowthChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="horizon"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -75,6 +78,7 @@ export function UncertaintyGrowthChart({
           width={44}
           tickFormatter={(value: number) => `${value.toFixed(1)}%`}
         />
+        {weekendBands(rows.map((r) => r.target_date), rows.map((r) => r.horizon))}
         <Tooltip
           cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }}
           content={({ active, payload }) => {
@@ -131,6 +135,7 @@ export function SkewChart({ rows, height = 220 }: { rows: WidthRow[]; height?: n
       legend={[
         { label: "Upside-heavy (cedi weaker)", color: "var(--chart-8)", shape: "area" },
         { label: "Downside-heavy (cedi firmer)", color: "var(--chart-1)", shape: "area" },
+        ...(hasWeekendBands(rows.map((r) => r.target_date)) ? [WEEKEND_LEGEND] : []),
       ]}
       height={height}
       footnote="Zero is a symmetric interval. Chronos-2 quantiles are calibrated per horizon cohort, so a persistent tilt in one direction is worth checking against realised outcomes."
@@ -154,6 +159,7 @@ export function SkewChart({ rows, height = 220 }: { rows: WidthRow[]; height?: n
           width={44}
           tickFormatter={(value: number) => `${value.toFixed(0)}%`}
         />
+        {weekendBands(rows.map((r) => r.target_date), rows.map((r) => r.horizon))}
         <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
         <Tooltip
           cursor={{ fill: "var(--muted)", fillOpacity: 0.5 }}
@@ -215,6 +221,11 @@ export function DriftChart({
     <ChartFrame
       title="Median drift from today's spot"
       description="Cumulative percentage move implied by the median path, measured from the latest observed rate."
+      legend={
+        hasWeekendBands(data.map((r) => r.target_date))
+          ? [{ label: "Median drift", color: accent, shape: "line" }, WEEKEND_LEGEND]
+          : undefined
+      }
       height={height}
       footnote="Above zero the model expects the cedi to weaken against this currency; below zero it expects the cedi to firm."
     >
@@ -222,6 +233,7 @@ export function DriftChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="horizon"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -235,6 +247,7 @@ export function DriftChart({
           width={48}
           tickFormatter={(value: number) => `${value > 0 ? "+" : ""}${value.toFixed(1)}%`}
         />
+        {weekendBands(data.map((r) => r.target_date), data.map((r) => r.horizon))}
         <ReferenceLine y={0} stroke="var(--border)" />
         <Tooltip
           cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }}

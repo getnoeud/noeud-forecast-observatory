@@ -171,6 +171,15 @@ ingestion by request kind, and a live row count for every table in the schema.
   merges every stored origin and lets each date keep its most recently issued
   forecast — a matured prediction is never dropped just because a newer
   vintage's window moved past it.
+- **Weekends are shaded.** FX rates are quoted every calendar day here, but the
+  market is shut at the weekend: the provider repeats Friday's rate while the
+  models still forecast Saturday and Sunday. Every date-based chart draws a
+  faint grey band behind Saturday–Sunday (observed and forecast days alike,
+  with a "Weekend" legend entry), and the D1–D30 horizon charts shade the
+  horizons that land on a weekend. It makes flat stretches read as a closed
+  market rather than a calm one, and shows which forecast days fall when banks
+  do not publish. Windows longer than about 400 days skip the bands, where they
+  would shrink to a few pixels.
 - **Every table is paginated**, with its own rows-per-page control
   (10 / 25 / 50 / 100), via the shared `PaginatedTable` component. The
   dropdowns themselves — page size, time-travel pickers — use the app's own
@@ -233,7 +242,7 @@ npm run dev
 ```
 
 Open `http://localhost:3000`. You will be asked for the shared observatory key
-(`OBSERVATORY_SHARED_SECRET`) before anything renders.
+(`OBSERVATORY_SHARED_SECRET`) before anything renders. The field has a show/hide (eye) toggle so you can check what you typed.
 
 ```bash
 npm run build

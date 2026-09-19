@@ -4,7 +4,7 @@ import { RadarIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/obs/password-input";
 import { Label } from "@/components/ui/label";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth";
 
@@ -62,10 +62,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
                 <Label htmlFor="password" className="text-sm">
                   Shared observatory key
                 </Label>
-                <Input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   placeholder="••••••"
                   className="h-10"
                   required

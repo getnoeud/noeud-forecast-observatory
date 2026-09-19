@@ -23,6 +23,7 @@ import {
   TooltipRow,
   TooltipShell,
 } from "@/components/charts/frame";
+import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { PAIR_COLOR_VAR } from "@/components/obs/badges";
 import { formatDate, formatPercent, formatRate, formatShortDate } from "@/lib/format";
 import type { MultiSeriesRow } from "@/lib/analytics";
@@ -54,7 +55,7 @@ export function IndexedHistoryChart({
     <ChartFrame
       title={title}
       description={description}
-      legend={PAIR_LEGEND}
+      legend={[...PAIR_LEGEND, ...(hasWeekendBands(rows.map((r) => r.date)) ? [WEEKEND_LEGEND] : [])]}
       height={height}
       footnote="A rising line means the cedi has weakened against that currency since the start of the window."
     >
@@ -62,6 +63,7 @@ export function IndexedHistoryChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="date"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -75,6 +77,7 @@ export function IndexedHistoryChart({
           width={52}
           tickFormatter={(value: number) => `${value > 0 ? "+" : ""}${value.toFixed(0)}%`}
         />
+        {weekendBands(rows.map((r) => r.date))}
         <ReferenceLine y={0} stroke="var(--border)" />
         <Tooltip
           cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }}
@@ -124,7 +127,7 @@ export function VolatilityChart({
     <ChartFrame
       title={`Rolling ${window}-day realised volatility`}
       description="Annualised standard deviation of daily log returns. This is the market's own turbulence, independent of any model."
-      legend={PAIR_LEGEND}
+      legend={[...PAIR_LEGEND, ...(hasWeekendBands(rows.map((r) => r.date)) ? [WEEKEND_LEGEND] : [])]}
       height={height}
       footnote="Calendar-day series include weekends, where the provider repeats the last quoted rate. Zero-return days pull realised volatility below an equivalent trading-day estimate."
     >
@@ -132,6 +135,7 @@ export function VolatilityChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="date"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -145,6 +149,7 @@ export function VolatilityChart({
           width={46}
           tickFormatter={(value: number) => `${value.toFixed(0)}%`}
         />
+        {weekendBands(rows.map((r) => r.date))}
         <Tooltip
           cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }}
           content={({ active, payload }) => {
@@ -200,6 +205,11 @@ export function LevelChart({
     <ChartFrame
       title={title ?? `${pair} observed rate`}
       description={description}
+      legend={
+        hasWeekendBands(series.map((r) => r.observed_on))
+          ? [{ label: pair, color, shape: "area" }, WEEKEND_LEGEND]
+          : undefined
+      }
       height={height}
     >
       <AreaChart data={series} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
@@ -212,6 +222,7 @@ export function LevelChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="observed_on"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -226,6 +237,7 @@ export function LevelChart({
           domain={["auto", "auto"]}
           tickFormatter={(value: number) => value.toFixed(2)}
         />
+        {weekendBands(series.map((r) => r.observed_on))}
         <Tooltip
           cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }}
           content={({ active, payload }) => {
@@ -268,6 +280,7 @@ export function ReturnsChart({
       legend={[
         { label: "Cedi weaker", color: "var(--chart-8)", shape: "area" },
         { label: "Cedi firmer", color: "var(--chart-3)", shape: "area" },
+        ...(hasWeekendBands(data.map((r) => r.date)) ? [WEEKEND_LEGEND] : []),
       ]}
       height={height}
       footnote="Block resampling preserves short runs of momentum that an independent draw would destroy."
@@ -289,6 +302,7 @@ export function ReturnsChart({
           width={46}
           tickFormatter={(value: number) => `${value.toFixed(1)}%`}
         />
+        {weekendBands(data.map((r) => r.date))}
         <ReferenceLine y={0} stroke="var(--border)" />
         <Tooltip
           cursor={{ fill: "var(--muted)", fillOpacity: 0.5 }}

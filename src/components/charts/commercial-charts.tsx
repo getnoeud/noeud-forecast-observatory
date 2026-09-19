@@ -25,6 +25,7 @@ import {
   type LegendEntry,
 } from "@/components/charts/frame";
 import { hollowMarker, MarkerSwatch } from "@/components/charts/markers";
+import { weekendBands } from "@/components/charts/weekend";
 import { PAIR_COLOR_VAR } from "@/components/obs/badges";
 import { InlineSelect } from "@/components/obs/inline-select";
 import { niceDomain } from "@/lib/analytics";
@@ -657,6 +658,7 @@ export function BankVsProviderSpark({
           <CartesianGrid {...GRID_PROPS} />
           <XAxis
             dataKey="date"
+            scale="band"
             tickLine={false}
             axisLine={false}
             tick={{ ...AXIS_TICK, fontSize: 10 }}
@@ -700,6 +702,7 @@ export function BankVsProviderSpark({
               );
             }}
           />
+          {weekendBands(rows.map((row) => row.date))}
           <Area
             dataKey="range"
             activeDot={false}

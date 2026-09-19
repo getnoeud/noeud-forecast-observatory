@@ -21,6 +21,7 @@ import {
   TooltipRow,
   TooltipShell,
 } from "@/components/charts/frame";
+import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { PAIR_COLOR_VAR } from "@/components/obs/badges";
 import { formatDate, formatPercent, formatRate, formatShortDate } from "@/lib/format";
 import { PAIRS, type Pair } from "@/lib/types";
@@ -43,11 +44,14 @@ export function ForwardOutlookChart({
     <ChartFrame
       title="Forward outlook — next 30 days"
       description="Median forecast path for each pair, measured as percent change from that pair's latest observed rate."
-      legend={PAIRS.map((pair) => ({
-        label: pair,
-        color: PAIR_COLOR_VAR[pair],
-        shape: "line" as const,
-      }))}
+      legend={[
+        ...PAIRS.map((pair) => ({
+          label: pair,
+          color: PAIR_COLOR_VAR[pair],
+          shape: "line" as const,
+        })),
+        ...(hasWeekendBands(rows.map((r) => r.target_date)) ? [WEEKEND_LEGEND] : []),
+      ]}
       height={height}
       footnote="Above the zero line the model expects the cedi to weaken against that currency over the horizon; below it, to firm. Intervals are on the Forward Forecast page — this is the central path only."
     >
@@ -55,6 +59,7 @@ export function ForwardOutlookChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="horizon"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -68,6 +73,7 @@ export function ForwardOutlookChart({
           width={50}
           tickFormatter={(value: number) => `${value > 0 ? "+" : ""}${value.toFixed(1)}%`}
         />
+        {weekendBands(rows.map((r) => r.target_date), rows.map((r) => r.horizon))}
         <ReferenceLine y={0} stroke="var(--border)" />
         <Tooltip
           cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }}

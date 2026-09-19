@@ -20,6 +20,7 @@ import {
   TooltipShell,
   type LegendEntry,
 } from "@/components/charts/frame";
+import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { niceDomain, type TrackRow } from "@/lib/analytics";
 import { formatDate, formatPercent, formatRate, formatShortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -129,6 +130,8 @@ export function TrackChart({
     return niceDomain(values, 6);
   }, [rows, bands, bankVisible, bankMeans]);
 
+  const dates = React.useMemo(() => rows.map((row) => row.date), [rows]);
+
   const legend: LegendEntry[] = [
     { label: "Observed rate", color: "var(--foreground)", shape: "line" },
     { label: "Chronos-2 median", color: CHRONOS, shape: "dash" },
@@ -142,6 +145,7 @@ export function TrackChart({
     ...(bankVisible
       ? ([{ label: "Bank mean (transfer selling)", color: BANK, shape: "dot" }] as LegendEntry[])
       : []),
+    ...(hasWeekendBands(dates) ? [WEEKEND_LEGEND] : []),
   ];
 
   return (
@@ -181,6 +185,7 @@ export function TrackChart({
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="date"
+          scale="band"
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
@@ -269,6 +274,7 @@ export function TrackChart({
           }}
         />
 
+        {weekendBands(dates)}
         {bands === "both" ? (
           <Area
             dataKey="bootstrapBand"

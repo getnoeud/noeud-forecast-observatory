@@ -14,6 +14,7 @@ import {
   PAIR_COLOR_VAR,
   StatusPill,
 } from "@/components/obs/badges";
+import { BankContextCard } from "@/components/obs/bank-context";
 import { DataSourceError } from "@/components/obs/db-error";
 import { EvidenceTable } from "@/components/obs/evidence-table";
 import { JsonViewer, Prose } from "@/components/obs/json-viewer";
@@ -180,7 +181,7 @@ export default async function IntelligencePage({
       <PageHeader
         eyebrow="Event intelligence"
         title="Event Intelligence"
-        description="A bounded two-call workflow runs once per pair per day: a time-limited news search, then a structured scorer that reads the search output alongside the forecast decision packet. Its output is evidence and a recommendation — never a published rate."
+        description="A bounded two-call workflow runs once per pair each weekday at 12:00 Africa/Accra, after the morning forecasts are archived and the day's bank rate cards are collected: a time-limited news search, then a structured scorer that reads it alongside the forecast decision packet and the same-day bank quotes. Each assessment is valid midday to midday. Its output is evidence and a recommendation — never a published rate."
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <TimeTravel
@@ -210,7 +211,7 @@ export default async function IntelligencePage({
         <StatTile
           label="Cycle cost"
           value={formatUsd(cycleCost, 3)}
-          hint={`${ordered.length} pairs × 2 gateway calls · ${formatUsd(cycleCost * 30, 2)} at this rate for 30 days`}
+          hint={`${ordered.length} pairs × 2 gateway calls · ≈${formatUsd(cycleCost * 22, 2)} a month at ~22 weekday cycles`}
           accent="var(--chart-1)"
         />
         <StatTile
@@ -761,6 +762,7 @@ export default async function IntelligencePage({
                 </div>
               </CardContent>
             </Card>
+            <BankContextCard record={record} />
           </section>
         </>
       ) : null}

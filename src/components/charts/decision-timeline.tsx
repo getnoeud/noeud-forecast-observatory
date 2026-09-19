@@ -131,7 +131,7 @@ export function DecisionTimeline({
           </div>
         </div>
         <p className="border-t pt-3 text-xs leading-relaxed text-muted-foreground">
-          A grey cell means no assessment was recorded for that pair that day — a paused
+          A grey cell means no assessment was recorded for that pair that day. Assessments run weekdays at 12:00, so Saturdays and Sundays are expected gaps; a grey weekday means a paused
           schedule, a failed run, or a day before the experiment started. Decisions are the
           model&apos;s recommendation only; none of them published anything.
         </p>

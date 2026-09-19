@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MarkerSwatch, type MarkerShape } from "@/components/charts/markers";
 import { cn } from "@/lib/utils";
 
 export type LegendEntry = {
@@ -17,6 +18,8 @@ export type LegendEntry = {
   color?: string;
   /** "line" | "area" | "dot" | "dash" — drawn as a swatch, plus the label. */
   shape?: "line" | "area" | "dot" | "dash";
+  /** A hollow marker shape; takes precedence over `shape` when set. */
+  marker?: MarkerShape;
 };
 
 /** The legend is always present for two or more series; never colour alone. */
@@ -25,6 +28,9 @@ export function ChartLegend({ entries }: { entries: LegendEntry[] }) {
     <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
       {entries.map((entry) => (
         <li key={entry.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {entry.marker ? (
+            <MarkerSwatch shape={entry.marker} color={entry.color ?? "var(--muted-foreground)"} />
+          ) : (
           <span
             aria-hidden
             className={cn(
@@ -42,6 +48,7 @@ export function ChartLegend({ entries }: { entries: LegendEntry[] }) {
                   : undefined,
             }}
           />
+          )}
           {entry.label}
         </li>
       ))}
@@ -54,6 +61,7 @@ export function ChartFrame({
   description,
   legend,
   toolbar,
+  controls,
   footnote,
   height = 300,
   children,
@@ -64,6 +72,8 @@ export function ChartFrame({
   description?: React.ReactNode;
   legend?: LegendEntry[];
   toolbar?: React.ReactNode;
+  /** Interactive filters shown under the legend, above the plot. */
+  controls?: React.ReactNode;
   footnote?: React.ReactNode;
   height?: number;
   children: React.ReactElement;
@@ -85,6 +95,7 @@ export function ChartFrame({
           {toolbar ? <div className="flex items-center gap-2">{toolbar}</div> : null}
         </div>
         {legend?.length ? <ChartLegend entries={legend} /> : null}
+        {controls ? <div className="flex flex-wrap items-center gap-2 pt-1">{controls}</div> : null}
       </CardHeader>
       <CardContent className={cn("pb-2", contentClassName)}>
         <div style={{ height }} className="w-full [&_.recharts-surface]:overflow-visible">

@@ -117,7 +117,7 @@ const GLOSSARY = [
   },
   {
     term: "Decision packet",
-    body: "The deterministic input given to the scorer: the next seven common target dates in detail, checkpoints at days 14, 21 and 30, path statistics, the latest five spot observations, and the weekly forecast errors already observed.",
+    body: "The deterministic input given to the scorer: the next seven common target dates in detail, checkpoints at days 14, 21 and 30, path statistics, the latest five spot observations, the weekly forecast errors already observed, and — from events-v2.8 — the same-day bank rate cards fetched before the noon cutoff.",
   },
 ];
 
@@ -164,7 +164,7 @@ export default function MethodologyPage() {
         <CardContent className="space-y-5">
           <SectionHeading
             title="The daily cycle"
-            description="One dependency-ordered flow, so no downstream step depends on a guessed time gap between schedules."
+            description="Two deployments. The 05:00 morning cycle ingests rates and issues forecasts every day; the 12:00 weekday cycle collects bank rate cards, runs event intelligence and publishes shadow snapshots — and refuses to start if the morning archive is missing."
           />
           <PipelineDiagram />
         </CardContent>
@@ -242,6 +242,43 @@ export default function MethodologyPage() {
       <Card>
         <CardContent className="space-y-5">
           <SectionHeading
+            title="Commercial bank rates"
+            description="A second, observed measurement of the same currencies — never a forecast target."
+          />
+          <div className="grid gap-4 lg:grid-cols-3">
+            {[
+              {
+                title: "What is collected",
+                body: "Each weekday at 12:00 Africa/Accra the midday cycle reads the dated rate cards Absa, Stanbic and FNB publish — transfer and cash, buying and selling, for all three pairs — and archives each value with its source URL, document SHA-256 and fetch time. A document older than four days or with a changed layout is rejected, never guessed.",
+              },
+              {
+                title: "How the mean is built",
+                body: "Only explicit transfer-selling labels (Absa transfer, Stanbic TT, FNB remittance) enter the mean, using the latest document per bank and date. The divisor is the banks that actually published — never a zero-filled bank. At least two banks are needed for a benchmark; one bank is shown but flagged.",
+              },
+              {
+                title: "What it can and cannot tell you",
+                body: "The models forecast the ExchangeRate-API series, so a bank mean above it is the banks' markup, not a model miss. Bank mean − forecast mixes that spread with forecast error and must not be reported as accuracy. The quotes are indicative — Absa caps its card at USD 5,000 — so they suit monitoring, not invoice settlement.",
+              },
+            ].map((item) => (
+              <div key={item.title} className="rounded-xl border p-4">
+                <p className="text-sm font-medium">{item.title}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+              </div>
+            ))}
+          </div>
+          <ReadingNote>
+            The backend&apos;s comparison view scores Chronos against the bank mean only where a
+            genuinely <em>issued</em> Monday vintage targeted that date before the quotes were
+            fetched; a reconstructed week is deliberately excluded. Banks publish on business days
+            only, so weekends are gaps rather than a carried-forward Friday rate. GCB is not in
+            the benchmark: its page does not publish an explicit transfer-selling label.
+          </ReadingNote>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-5">
+          <SectionHeading
             title="Event intelligence and its bounds"
             description="Two explicit calls per pair per day, with deterministic gates on both sides of the model."
           />
@@ -257,7 +294,7 @@ export default function MethodologyPage() {
               },
               {
                 title: "3 · Analysis",
-                body: "A structured scorer reads the surviving evidence alongside the deterministic decision packet and returns hold, monitor, or review_adjustment — with a rationale, counter-evidence, watch items, and any proposed per-date deltas.",
+                body: "A structured scorer reads the surviving evidence alongside the deterministic decision packet and the same-day bank quotes, and returns hold, monitor, or review_adjustment — with a rationale, counter-evidence, watch items, and any proposed per-date deltas.",
               },
             ].map((step) => (
               <div key={step.title} className="rounded-xl border p-4">
@@ -407,6 +444,7 @@ export default function MethodologyPage() {
                     ["Overview", "latest pointers, vintages, publications, coverage, pipeline runs"],
                     ["Forward Forecast", "forecast_vintages, forecast_points, published_forecast_*"],
                     ["Forecast Accuracy", "forecast_points ⋈ canonical_fx_observations, matured_outcome_evaluations"],
+                    ["Commercial Rates", "commercial_bank_quotes, commercial_transfer_selling_comparisons"],
                     ["Event Intelligence", "event_assessments, event_forecast_links, retrieval_snapshots"],
                     ["Model Lineage", "forecast_vintages, model_artifacts, model_alias_pointers"],
                     ["Market History", "canonical_fx_observations, provider_runs"],

@@ -235,6 +235,7 @@ export function ForecastFanChart({
           <Area
             key={band.key}
             dataKey={band.key}
+            activeDot={false}
             stroke="none"
             fill={SHADE_FILL[band.shade]}
             fillOpacity={SHADE_OPACITY[band.shade]}

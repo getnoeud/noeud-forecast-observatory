@@ -26,6 +26,9 @@ import { cn } from "@/lib/utils";
 
 const CHRONOS = "var(--chart-1)";
 const BOOTSTRAP = "var(--chart-2)";
+// Slots 1–3 clear the all-pairs separation floors together, so the bank series
+// takes slot 3 here where Chronos already holds slot 1.
+const BANK = "var(--chart-3)";
 
 type BandMode = "none" | "chronos" | "both";
 
@@ -81,8 +84,11 @@ export function TrackChart({
   description = "Every calendar date carries the realised rate, the Chronos median that covered it, and the bootstrap median that covered it. Left of the marker all three are settled; right of it only the models have an opinion.",
   footnote,
   height = 400,
+  bankMeans = [],
 }: {
   rows: TrackRow[];
+  /** Cross-bank mean transfer-selling rate by date — a commercial price, not a model input. */
+  bankMeans?: { date: string; mean: number; min: number; max: number; bankCount: number }[];
   todayDate?: string | null;
   title?: string;
   description?: React.ReactNode;
@@ -90,9 +96,29 @@ export function TrackChart({
   height?: number;
 }) {
   const [bands, setBands] = React.useState<BandMode>("chronos");
+  const hasBank = bankMeans.length > 0;
+  const [showBank, setShowBank] = React.useState(true);
+  const bankVisible = hasBank && showBank;
+
+  const data = React.useMemo(() => {
+    if (!hasBank) return rows;
+    const byDate = new Map(bankMeans.map((row) => [row.date, row]));
+    return rows.map((row) => {
+      const bank = byDate.get(row.date);
+      return {
+        ...row,
+        bankMean: bank?.mean ?? null,
+        bankRange: bank ? ([bank.min, bank.max] as [number, number]) : null,
+        bankCount: bank?.bankCount ?? null,
+      };
+    });
+  }, [rows, bankMeans, hasBank]);
 
   const axis = React.useMemo(() => {
     const values: number[] = [];
+    if (bankVisible) {
+      for (const bank of bankMeans) values.push(bank.min, bank.max);
+    }
     for (const row of rows) {
       if (row.actual !== null) values.push(row.actual);
       if (row.chronos !== null) values.push(row.chronos);
@@ -101,7 +127,7 @@ export function TrackChart({
       if (bands === "both" && row.bootstrapBand) values.push(...row.bootstrapBand);
     }
     return niceDomain(values, 6);
-  }, [rows, bands]);
+  }, [rows, bands, bankVisible, bankMeans]);
 
   const legend: LegendEntry[] = [
     { label: "Observed rate", color: "var(--foreground)", shape: "line" },
@@ -113,6 +139,9 @@ export function TrackChart({
     ...(bands === "both"
       ? ([{ label: "Bootstrap 90%", color: BOOTSTRAP, shape: "area" }] as LegendEntry[])
       : []),
+    ...(bankVisible
+      ? ([{ label: "Bank mean (transfer selling)", color: BANK, shape: "dot" }] as LegendEntry[])
+      : []),
   ];
 
   return (
@@ -120,11 +149,35 @@ export function TrackChart({
       title={title}
       description={description}
       legend={legend}
-      toolbar={<BandToggle value={bands} onChange={setBands} />}
+      toolbar={
+        <>
+          {hasBank ? (
+            <button
+              type="button"
+              aria-pressed={showBank}
+              onClick={() => setShowBank((value) => !value)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[0.7rem] font-medium transition-colors",
+                showBank
+                  ? "border-transparent bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <span
+                aria-hidden
+                className="inline-block size-2 rounded-full"
+                style={{ background: BANK, opacity: showBank ? 1 : 0.35 }}
+              />
+              Bank mean
+            </button>
+          ) : null}
+          <BandToggle value={bands} onChange={setBands} />
+        </>
+      }
       footnote={footnote}
       height={height}
     >
-      <ComposedChart data={rows} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
+      <ComposedChart data={data} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="date"
@@ -189,6 +242,28 @@ export function TrackChart({
                     value={formatPercent(bootstrapMiss, 2, true)}
                   />
                 ) : null}
+                {bankVisible && (row as TrackRow & { bankMean?: number | null }).bankMean != null ? (
+                  <>
+                    <TooltipRow
+                      label={`Bank mean (${(row as TrackRow & { bankCount?: number }).bankCount} banks)`}
+                      value={formatRate((row as TrackRow & { bankMean: number }).bankMean)}
+                      color={BANK}
+                      emphasis
+                    />
+                    {row.actual !== null ? (
+                      <TooltipRow
+                        label="Bank vs observed"
+                        value={formatPercent(
+                          (((row as TrackRow & { bankMean: number }).bankMean - row.actual) /
+                            row.actual) *
+                            100,
+                          2,
+                          true,
+                        )}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
               </TooltipShell>
             );
           }}
@@ -197,6 +272,7 @@ export function TrackChart({
         {bands === "both" ? (
           <Area
             dataKey="bootstrapBand"
+            activeDot={false}
             stroke="none"
             fill={BOOTSTRAP}
             fillOpacity={0.12}
@@ -207,6 +283,7 @@ export function TrackChart({
         {bands !== "none" ? (
           <Area
             dataKey="chronosBand"
+            activeDot={false}
             stroke="none"
             fill={CHRONOS}
             fillOpacity={0.14}
@@ -256,6 +333,27 @@ export function TrackChart({
           connectNulls
           isAnimationActive={false}
         />
+        {bankVisible ? (
+          <Area
+            dataKey="bankRange"
+            activeDot={false}
+            stroke="none"
+            fill={BANK}
+            fillOpacity={0.18}
+            isAnimationActive={false}
+          />
+        ) : null}
+        {bankVisible ? (
+          <Line
+            dataKey="bankMean"
+            stroke={BANK}
+            strokeWidth={2}
+            dot={{ r: 4, strokeWidth: 2, stroke: "var(--card)", fill: BANK }}
+            activeDot={{ r: 5, strokeWidth: 0, fill: BANK }}
+            connectNulls
+            isAnimationActive={false}
+          />
+        ) : null}
       </ComposedChart>
     </ChartFrame>
   );

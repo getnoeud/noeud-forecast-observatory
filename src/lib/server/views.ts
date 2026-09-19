@@ -6,12 +6,14 @@ import {
   getAllLatestPublications,
   getAllLatestVintages,
   getAllSeries,
+  getCommercialComparisons,
   getCoverage,
   getLatestAssessmentPerPair,
   getLatestObservations,
   getPipelineRuns,
   getPointsFor,
   getPublicationSummaries,
+  type CommercialComparison,
   type CoverageRow,
   type PublicationSummary,
 } from "@/lib/server/queries";
@@ -114,6 +116,7 @@ export type OverviewModel = {
   latestRun: PipelineRun | null;
   runs: PipelineRun[];
   series: Record<string, { observed_on: string; rate: number }[]>;
+  commercial: CommercialComparison[];
   generatedAt: string;
 };
 
@@ -127,6 +130,7 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
     series,
     vintages,
     snapshots,
+    commercial,
   ] = await Promise.all([
     getLatestObservations(),
     getLatestAssessmentPerPair(),
@@ -136,6 +140,9 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
     getAllSeries(400),
     getAllLatestVintages(),
     getAllLatestPublications(),
+    // The bank table is newer than the forecast ledgers; never let it take the
+    // overview down.
+    getCommercialComparisons(2000).catch(() => []),
   ]);
 
   const pointsByForecast = await getPointsFor(
@@ -181,6 +188,7 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
     latestRun: runs[0] ?? null,
     runs,
     series,
+    commercial,
     generatedAt: new Date().toISOString(),
   };
 });

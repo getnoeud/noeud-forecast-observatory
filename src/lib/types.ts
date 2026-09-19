@@ -203,6 +203,23 @@ export type GatewayCall = {
   retrieval_snapshot_id: string | null;
 };
 
+export type CommercialMarketContext = {
+  basis?: string;
+  observed_on?: string;
+  bank_count?: number;
+  /** Null when fewer than two banks published — not a cross-bank benchmark. */
+  mean_transfer_selling_rate?: number | null;
+  quotes?: {
+    bank: string;
+    quote_type: string;
+    rate: number;
+    observed_on: string;
+    fetched_at: string;
+    source_url: string;
+  }[];
+  limitation?: string;
+};
+
 export type AdjustmentProposal = {
   target_date?: string;
   delta_pct?: number;
@@ -224,6 +241,8 @@ export type EventAssessmentRecord = {
     daily: { origin: string; points: { day: number; date: string; q05: number; q50: number; q95: number }[] };
     weekly: { origin: string; points: { day: number; date: string; q05: number; q50: number; q95: number }[] };
     spots: { date: string; rate: number; available_at: string }[];
+    /** Same-day bank quotes fetched by the analyst cutoff (events-v2.8 onward). */
+    commercial_market?: CommercialMarketContext | null;
   };
   evidence: EvidenceItem[];
   assessment: EventAssessmentBody;

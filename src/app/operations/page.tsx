@@ -75,6 +75,20 @@ function LeaseTable({ jobs, label }: { jobs: LeaseJob[]; label: string }) {
   return <PaginatedTable header={header} rows={rows} pageSize={8} label="claims" />;
 }
 
+/** The schedules the backend registers; anything else seen in the ledger is listed too. */
+const DEPLOYMENTS = [
+  {
+    name: "daily-market-cycle",
+    schedule: "Daily 05:00",
+    does: "Ingest and repair rates, Monday Chronos-2, daily bootstrap",
+  },
+  {
+    name: "midday-commercial-cycle",
+    schedule: "Mon–Fri 12:00",
+    does: "Check the morning archive, collect bank rate cards, event intelligence, shadow snapshots",
+  },
+];
+
 export default async function OperationsPage() {
   let runs;
   let eventJobs;
@@ -119,7 +133,7 @@ export default async function OperationsPage() {
       <PageHeader
         eyebrow="Operations"
         title="Operations"
-        description="The dependency-ordered daily flow and the leases that keep it exactly-once. One flow ingests, issues the Monday branch when due, assesses events, and materialises the shadow publication — so no downstream step relies on a guessed time gap."
+        description="Two dependency-linked deployments and the leases that keep them exactly-once. The 05:00 morning cycle ingests rates and issues forecasts; the weekday 12:00 cycle verifies that archive, collects bank rate cards, assesses events and materialises the shadow publication — so no step relies on a guessed time gap."
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -156,6 +170,56 @@ export default async function OperationsPage() {
           hint={`${formatInteger(ingestedRows)} written by provider ingestion across ${formatInteger(rollup.reduce((sum, row) => sum + row.runs, 0))} runs`}
           accent="var(--chart-3)"
         />
+      </section>
+
+      <section className="space-y-3">
+        <SectionHeading
+          title="Deployments"
+          description="Each scheduled deployment (times in Africa/Accra) and its most recent run. The midday cycle depends on the morning one and fails closed if the morning archive is missing."
+        />
+        <div className="grid gap-4 lg:grid-cols-2">
+          {[
+            ...DEPLOYMENTS,
+            ...Array.from(new Set(runs.map((run) => run.deployment_name)))
+              .filter((name) => !DEPLOYMENTS.some((item) => item.name === name))
+              .map((name) => ({ name, schedule: "Unscheduled / manual", does: "" })),
+          ].map((deployment) => {
+            const own = runs.filter((run) => run.deployment_name === deployment.name);
+            const last = own[0] ?? null;
+            const ok = own.filter((run) => run.state === "succeeded").length;
+            return (
+              <Card key={deployment.name} className="gap-3">
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <MonoTag>{deployment.name}</MonoTag>
+                    {last ? (
+                      <RunStateBadge state={last.state} />
+                    ) : (
+                      <StatusPill tone="neutral" label="No run recorded yet" />
+                    )}
+                  </div>
+                  {deployment.does ? (
+                    <p className="text-xs leading-relaxed text-muted-foreground">{deployment.does}</p>
+                  ) : null}
+                  <KeyValueGrid
+                    columns={3}
+                    items={[
+                      { label: "Schedule", value: deployment.schedule },
+                      {
+                        label: "Last run",
+                        value: last ? formatRelative(last.completed_at ?? last.started_at) : "—",
+                      },
+                      {
+                        label: "Recorded runs",
+                        value: own.length ? `${ok} / ${own.length} succeeded` : "0",
+                      },
+                    ]}
+                  />
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </section>
 
       <section className="space-y-3">

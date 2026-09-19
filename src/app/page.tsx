@@ -10,6 +10,7 @@ import { ForwardOutlookChart, type DriftRow } from "@/components/charts/overview
 import { IndexedHistoryChart } from "@/components/charts/market-charts";
 import { buildMultiSeries } from "@/lib/analytics";
 import { DataSourceError } from "@/components/obs/db-error";
+import { CommercialOverview } from "@/components/obs/commercial-overview";
 import { PairCard } from "@/components/obs/pair-card";
 import { PaginatedTable } from "@/components/obs/paginated-table";
 import {
@@ -150,6 +151,8 @@ export default async function OverviewPage() {
           ))}
         </div>
       </section>
+
+      <CommercialOverview comparisons={model.commercial} series={model.series} />
 
       <section className="grid gap-4 xl:grid-cols-2">
         {driftRows.length ? (

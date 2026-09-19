@@ -23,6 +23,7 @@ export function HorizonTable({
   published,
   observed,
   bootstrap,
+  bankMeans,
   pageSize = 15,
 }: {
   points: WalkForwardPoint[];
@@ -31,6 +32,8 @@ export function HorizonTable({
   observed?: Map<string, number>;
   /** Bootstrap points for the same target dates, shown as overlay columns. */
   bootstrap?: ForecastPoint[];
+  /** Cross-bank mean transfer-selling rate by date (a commercial, not a model, basis). */
+  bankMeans?: { date: string; mean: number; bankCount: number }[];
   pageSize?: number;
 }) {
   const publishedByDate = new Map(
@@ -39,6 +42,8 @@ export function HorizonTable({
   const bootstrapByDate = new Map(
     (bootstrap ?? []).map((point) => [point.target_date, point]),
   );
+  const bankByDate = new Map((bankMeans ?? []).map((row) => [row.date, row]));
+  const showBank = bankByDate.size > 0;
   const showOrigin = points.some((point) => point.origin);
   const showBootstrap = Boolean(bootstrap?.length);
 
@@ -55,6 +60,8 @@ export function HorizonTable({
       <TableHead className="text-right">90% width</TableHead>
       <TableHead className="text-right">vs spot</TableHead>
       {observed ? <TableHead className="text-right">Observed</TableHead> : null}
+      {showBank ? <TableHead className="text-right">Bank mean</TableHead> : null}
+      {showBank ? <TableHead className="text-right">Bank vs median</TableHead> : null}
       {showBootstrap ? <TableHead className="text-right">Bootstrap median</TableHead> : null}
       {published?.length ? <TableHead>Published</TableHead> : null}
     </TableRow>
@@ -65,6 +72,8 @@ export function HorizonTable({
     const actual = observed?.get(point.target_date);
     const pub = publishedByDate.get(point.target_date);
     const boot = bootstrapByDate.get(point.target_date);
+    const bank = bankByDate.get(point.target_date);
+    const bankGap = bank ? ((bank.mean - point.q50) / point.q50) * 100 : null;
     return (
       <TableRow key={`${point.origin ?? ""}-${point.target_date}`}>
         <TableCell className="tnum font-mono text-xs text-muted-foreground">
@@ -131,6 +140,29 @@ export function HorizonTable({
             )}
           </TableCell>
         ) : null}
+        {showBank ? (
+          <TableCell className="tnum text-right font-mono text-xs">
+            {bank ? (
+              <span
+                className="font-semibold text-[var(--chart-1)]"
+                title={`${bank.bankCount} bank${bank.bankCount === 1 ? "" : "s"}, transfer selling`}
+              >
+                {formatRate(bank.mean)}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </TableCell>
+        ) : null}
+        {showBank ? (
+          <TableCell className="tnum text-right font-mono text-xs">
+            {bankGap === null ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              formatPercent(bankGap, 2, true)
+            )}
+          </TableCell>
+        ) : null}
         {showBootstrap ? (
           <TableCell className="tnum text-right font-mono text-xs">
             {boot ? (
@@ -160,6 +192,14 @@ export function HorizonTable({
 
   return (
     <div className="space-y-3">
+      {showBank ? (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          <span className="font-medium text-[var(--chart-1)]">Bank mean</span> is the cross-bank
+          transfer-selling rate published for that date — a commercial price, not the series the
+          model forecasts, so <em>bank vs median</em> includes the banks&apos; markup and is not a
+          forecast error. Banks publish on weekdays only.
+        </p>
+      ) : null}
       {showOrigin ? (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MonoTag>walk-forward</MonoTag>

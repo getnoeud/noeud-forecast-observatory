@@ -8,7 +8,15 @@ EUR/GHS and GBP/GHS.
 The observatory exists so the team can watch a live experiment run for weeks
 without reading the database by hand: what the models are forecasting, what
 the event-intelligence layer concluded and why, how yesterday's forecasts
-scored against today's rate, and whether the pipeline is actually running.
+scored against today's rate, what Ghana's banks are actually charging for the
+same currencies, and whether the pipeline is actually running.
+
+The backend runs two deployments, and the observatory reflects both:
+
+| Deployment | Schedule (Africa/Accra) | What it writes |
+| --- | --- | --- |
+| `daily-market-cycle` | Daily 05:00 | Provider rates, Monday Chronos-2 vintage, daily bootstrap vintage |
+| `midday-commercial-cycle` | Mon–Fri 12:00 | Bank rate cards, event assessments (valid midday → midday), shadow snapshots |
 
 It is read-only. Nothing on this dashboard writes to the forecasting database.
 
@@ -24,6 +32,7 @@ It is read-only. Nothing on this dashboard writes to the forecasting database.
 | `/` | What did the pipeline produce today, across all three pairs? |
 | `/forecast` | What is the live 30-day distribution, and what did each model say about each date? |
 | `/accuracy` | How are matured forecasts scoring against the rates that actually printed? |
+| `/commercial` | What are Absa, Stanbic and FNB publishing, and how far is that from the provider rate and the forecast? |
 | `/intelligence` | What did the LLM read, reject, and conclude — on any recorded day? |
 | `/models` | Which model produced this, how is it identified, and where is it in the promotion state machine? |
 | `/market` | Five years of calendar-day rates, their diagnostics, and any suspect prints |
@@ -34,8 +43,10 @@ It is read-only. Nothing on this dashboard writes to the forecasting database.
 
 ### Overview
 
-Latest rate, day-on-day change, the forward path per pair, and the event
-decision that landed for each one — the one screen you check first.
+Latest rate, day-on-day change, the forward path per pair, the event decision
+that landed for each one, and a commercial bank-rates card per pair (latest
+bank mean vs. the provider rate, the spread, and how both have moved since
+collection began) — the one screen you check first.
 
 ![Overview](screenshots/overview.png)
 
@@ -60,6 +71,11 @@ instead of vanishing the moment tomorrow's vintage supersedes it. A `Chronos
 origin` picker lets you reopen any past Monday vintage exactly as it was
 issued.
 
+Bank rates appear here too, on their own basis: the tracking chart has a
+toggleable **Bank mean** series (with its min–max range), and every "path in
+numbers" table has **Bank mean** and **Bank vs median** columns on the dates
+banks published.
+
 ### Forecast Accuracy
 
 Matured forecast points scored against canonical observations: error by
@@ -69,12 +85,48 @@ evaluation ledger where it exists.
 
 ![Forecast Accuracy](screenshots/forecast-accuracy.png)
 
+### Commercial Rates
+
+Published Ghana bank rate cards — Absa (transfer), Stanbic (TT) and FNB
+(remittance) — collected each weekday at 12:00, beside the provider rate every
+model is trained on and the forecasts that covered the same dates. Per-pair
+tiles give the latest bank mean, provider rate, commercial spread and the
+spread *between* banks; the benchmark is only flagged as such when at least two
+banks published.
+
+![Commercial Rates](screenshots/commercial-rates.png)
+
+The **bank rates over time** chart switches between the cross-bank average
+(with its min–max band), individual banks, or both; any bank can be toggled
+off; the quote label can be changed (transfer/cash, buying/selling); and the
+provider rate, Chronos median and bootstrap median can be overlaid. Banks are
+drawn as hollow markers with their own shape as well as colour, because they
+routinely quote within a pesewa of each other — and of the model median — and
+a filled dot would silently hide whichever was drawn first.
+
+![Bank rates chart](screenshots/commercial-bank-chart.png)
+
+Below it: the commercial spread over the provider for all three pairs, each
+bank's own buy/sell margin (transfer or cash), the full rate card for the
+latest date, the backend's benchmark-vs-provider-vs-forecast comparison table,
+and the append-only quote ledger with each row's source document and hash.
+
+> **The bank series is not a forecast target.** The models forecast the
+> ExchangeRate-API series, so a bank mean above it is a commercial markup, not a
+> model miss — *bank mean − forecast* mixes that spread with forecast error and
+> is never shown as accuracy. The quotes are indicative (Absa caps its card at
+> USD 5,000), so they are for monitoring, not settlement.
+
 ### Event Intelligence
 
-The bounded two-call LLM workflow: cost and latency per stage, the evidence
-composition, and — for any recorded day, via the assessment-day picker and the
-decision-history strip — the full reasoning, evidence table (with what was
-rejected and why), and gateway call audit behind one pair's decision.
+The bounded two-call LLM workflow, now run in the weekday 12:00 cycle after the
+bank rates are collected, with each assessment valid midday to midday: cost and
+latency per stage, the evidence composition, and — for any recorded day, via
+the assessment-day picker and the decision-history strip — the full reasoning,
+evidence table (with what was rejected and why), gateway call audit, and the
+exact bank quotes the scorer was given (`events-v2.8` onward; earlier
+assessments say plainly that they had none). Weekends are expected gaps in the
+decision history.
 
 ![Event Intelligence](screenshots/event-intelligence.png)
 
@@ -97,9 +149,10 @@ to be a suspect provider print rather than a market event.
 
 ### Operations
 
-Pipeline runs with their task result summaries, the event/retrieval leases
-that keep work exactly-once, provider ingestion by request kind, and a live
-row count for every table in the schema.
+A status card per deployment (morning and midday — including "no run recorded
+yet" before the midday cycle's first run), pipeline runs with their task result
+summaries, the event/retrieval leases that keep work exactly-once, provider
+ingestion by request kind, and a live row count for every table in the schema.
 
 ![Operations](screenshots/operations.png)
 
@@ -209,7 +262,8 @@ alone.
 
 - `src/lib/server/db.ts` — connection pool, reload-aware in dev
 - `src/lib/server/queries.ts` — every SQL read, one function per question
-- `src/lib/server/views.ts`, `forecast-view.ts` — page-level models
+- `src/lib/server/views.ts`, `forecast-view.ts`, `commercial-view.ts` — page-level models
+- `src/lib/commercial.ts` — bank identity, quote labels, the cross-bank mean and margin derivations
 - `src/lib/analytics.ts` — derivations shared by server and client, including
   the walk-forward merge
 - `src/components/charts/` — the chart library
@@ -220,6 +274,7 @@ alone.
 ## Related
 
 - [`../noeud-fx-forecast-intelligence/docs/supabase-setup-runbook.md`](https://github.com/getnoeud/noeud-fx-forecast-intelligence/blob/main/docs/supabase-setup-runbook.md)
+- [`../noeud-fx-forecast-intelligence/docs/commercial-rate-benchmark.md`](../noeud-fx-forecast-intelligence/docs/commercial-rate-benchmark.md)
 - [`../noeud-fx-forecast-intelligence/docs/event-intelligence.md`](https://github.com/getnoeud/noeud-fx-forecast-intelligence/blob/main/docs/event-intelligence.md)
 - [`../noeud-fx-forecast-intelligence/docs/model-gates.md`](https://github.com/getnoeud/noeud-fx-forecast-intelligence/blob/main/docs/model-gates.md)
 - [`../noeud-fx-forecast-intelligence/supabase/migrations/`](https://github.com/getnoeud/noeud-fx-forecast-intelligence/tree/main/supabase/migrations)

@@ -643,3 +643,81 @@ export const getDecisionHistory = cache(
     );
   },
 );
+
+/* ------------------------------------------------ commercial bank quotes */
+
+export type BankQuote = {
+  quote_id: string;
+  bank: string;
+  pair: Pair;
+  quote_type: string;
+  observed_on: string;
+  rate: number;
+  source_url: string;
+  source_sha256: string;
+  fetched_at: string;
+};
+
+/**
+ * One row per bank, pair, quote type and publication date — the latest acquired
+ * document wins, matching the rule the comparison view uses. A re-fetch of an
+ * unchanged document is a second archive row, not a second quote.
+ */
+export const getBankQuotes = cache(async (days = 400): Promise<BankQuote[]> => {
+  return query<BankQuote>(
+    `select distinct on (bank, pair, quote_type, observed_on)
+            quote_id, bank, pair, quote_type, observed_on::text as observed_on, rate,
+            source_url, source_sha256, fetched_at
+       from ${S()}.commercial_bank_quotes
+      where observed_on >= current_date - $1::int
+      order by bank, pair, quote_type, observed_on, fetched_at desc, created_at desc,
+               quote_id desc`,
+    [days],
+  );
+});
+
+/** Every archived document row, including re-fetches, for the provenance ledger. */
+export const getBankQuoteLedger = cache(async (limit = 2000): Promise<BankQuote[]> => {
+  return query<BankQuote>(
+    `select quote_id, bank, pair, quote_type, observed_on::text as observed_on, rate,
+            source_url, source_sha256, fetched_at
+       from ${S()}.commercial_bank_quotes
+      order by observed_on desc, fetched_at desc, bank, pair, quote_type
+      limit $1`,
+    [limit],
+  );
+});
+
+export type CommercialComparison = {
+  pair: Pair;
+  observed_on: string;
+  bank_count: number;
+  benchmark_eligible: boolean;
+  mean_transfer_selling_rate: number;
+  median_transfer_selling_rate: number;
+  min_transfer_selling_rate: number;
+  max_transfer_selling_rate: number;
+  latest_quote_fetched_at: string;
+  exchange_rate_api_rate: number | null;
+  weekly_chronos_q50: number | null;
+  weekly_forecast_id: string | null;
+  bank_mean_minus_provider: number | null;
+  bank_mean_minus_forecast: number | null;
+};
+
+/** The backend's own cross-bank benchmark view, one row per pair and date. */
+export const getCommercialComparisons = cache(
+  async (limit = 2000): Promise<CommercialComparison[]> => {
+    return query<CommercialComparison>(
+      `select pair, observed_on::text as observed_on, bank_count, benchmark_eligible,
+              mean_transfer_selling_rate, median_transfer_selling_rate,
+              min_transfer_selling_rate, max_transfer_selling_rate, latest_quote_fetched_at,
+              exchange_rate_api_rate, weekly_chronos_q50, weekly_forecast_id,
+              bank_mean_minus_provider, bank_mean_minus_forecast
+         from ${S()}.commercial_transfer_selling_comparisons
+        order by observed_on desc, pair
+        limit $1`,
+      [limit],
+    );
+  },
+);

@@ -88,6 +88,7 @@ export default async function ForecastPage({
     weeklyOptions,
     dailyOptions,
     isLatestWeekly,
+    bankMeans,
   } = model;
 
   const observed = new Map(history.map((item) => [item.observed_on, item.rate]));
@@ -194,6 +195,7 @@ export default async function ForecastPage({
 
           <TrackChart
             rows={track}
+            bankMeans={bankMeans}
             todayDate={latest?.observed_on ?? null}
             footnote={`Built from the ${weeklyOptions.length} stored Chronos vintage${weeklyOptions.length === 1 ? "" : "s"} and ${dailyOptions.length} bootstrap vintage${dailyOptions.length === 1 ? "" : "s"} for this pair. Where several vintages covered the same target date, the most recent origin is shown — the view a consumer reading the latest pointer would have had.`}
           />
@@ -300,6 +302,7 @@ export default async function ForecastPage({
                       points={weekly.points}
                       anchorRate={latest?.rate ?? null}
                       observed={observed}
+                      bankMeans={bankMeans}
                       published={publication?.points}
                     />
                   </TabsContent>
@@ -310,6 +313,7 @@ export default async function ForecastPage({
                         points={dailyWalkForwardPoints}
                         anchorRate={latest?.rate ?? null}
                         observed={observed}
+                        bankMeans={bankMeans}
                       />
                     ) : null}
                   </TabsContent>
@@ -338,6 +342,7 @@ export default async function ForecastPage({
                           points={weekly.points}
                           anchorRate={latest?.rate ?? null}
                           observed={observed}
+                          bankMeans={bankMeans}
                           published={publication.points}
                           bootstrap={dailyWalkForwardPoints}
                         />

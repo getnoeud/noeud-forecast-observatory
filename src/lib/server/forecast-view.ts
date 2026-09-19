@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import {
   getAllLatestPublications,
+  getCommercialComparisons,
   getLatestAssessmentPerPair,
   getObservations,
   getPairVintages,
@@ -71,6 +72,18 @@ export type ForecastModel = {
   divergence: DivergenceRow[];
   track: TrackRow[];
   realized: RealizedPointRow[];
+  /** Cross-bank mean transfer-selling rate by publication date (commercial basis). */
+  bankMeans: BankMeanPoint[];
+};
+
+export type BankMeanPoint = {
+  date: string;
+  mean: number;
+  median: number;
+  min: number;
+  max: number;
+  bankCount: number;
+  eligible: boolean;
 };
 
 function toOption(path: ForecastPath): VintageOption {
@@ -91,13 +104,17 @@ export const getForecastModel = cache(
   ): Promise<ForecastModel> => {
     const historyDays = options.historyDays ?? 120;
 
-    const [paths, observations, publications, assessments, realized] = await Promise.all([
-      getPairVintages(pair, 45),
-      getObservations(pair, Math.max(historyDays, 180)),
-      getAllLatestPublications(),
-      getLatestAssessmentPerPair(),
-      getRealizedPoints(4000),
-    ]);
+    const [paths, observations, publications, assessments, realized, comparisons] =
+      await Promise.all([
+        getPairVintages(pair, 45),
+        getObservations(pair, Math.max(historyDays, 180)),
+        getAllLatestPublications(),
+        getLatestAssessmentPerPair(),
+        getRealizedPoints(4000),
+        // Bank quotes are a newer table; a read failure there must not take the
+        // forecast page down with it.
+        getCommercialComparisons(2000).catch(() => []),
+      ]);
 
     const byKind = (kind: ForecastKind) =>
       paths
@@ -164,6 +181,18 @@ export const getForecastModel = cache(
         })),
       ),
       realized: realized.filter((row) => row.pair === pair),
+      bankMeans: comparisons
+        .filter((row) => row.pair === pair)
+        .map((row) => ({
+          date: row.observed_on,
+          mean: row.mean_transfer_selling_rate,
+          median: row.median_transfer_selling_rate,
+          min: row.min_transfer_selling_rate,
+          max: row.max_transfer_selling_rate,
+          bankCount: row.bank_count,
+          eligible: row.benchmark_eligible,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date)),
     };
   },
 );

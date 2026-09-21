@@ -549,3 +549,18 @@ export function buildWalkForwardPoints(
     a.target_date.localeCompare(b.target_date),
   );
 }
+
+/**
+ * `buildWalkForwardPoints` limited to what a viewer should see: only vintages
+ * issued at or before `asOf` (so opening an older Chronos origin shows the world
+ * as it was then, not later revisions), and only target dates from `since` on
+ * (so months-old vintages do not stretch a chart past its history window).
+ */
+export function walkForwardWindow(
+  paths: { origin: string; points: ForecastPoint[] }[],
+  { asOf, since }: { asOf?: string | null; since?: string | null } = {},
+): (ForecastPoint & { origin: string })[] {
+  const eligible = asOf ? paths.filter((path) => path.origin <= asOf) : paths;
+  const merged = buildWalkForwardPoints(eligible);
+  return since ? merged.filter((point) => point.target_date >= since) : merged;
+}

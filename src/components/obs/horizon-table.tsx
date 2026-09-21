@@ -58,7 +58,16 @@ export function HorizonTable({
       <TableHead className="text-right">q75</TableHead>
       <TableHead className="text-right">q95</TableHead>
       <TableHead className="text-right">90% width</TableHead>
-      <TableHead className="text-right">vs spot</TableHead>
+      <TableHead
+        className="text-right"
+        title={
+          showOrigin
+            ? "Median against the observed rate on the day that row's vintage was issued"
+            : "Median against the latest observed rate"
+        }
+      >
+        vs spot
+      </TableHead>
       {observed ? <TableHead className="text-right">Observed</TableHead> : null}
       {showBank ? <TableHead className="text-right">Bank mean</TableHead> : null}
       {showBank ? <TableHead className="text-right">Bank vs median</TableHead> : null}
@@ -68,7 +77,10 @@ export function HorizonTable({
   );
 
   const rows = points.map((point) => {
-    const drift = anchorRate ? ((point.q50 - anchorRate) / anchorRate) * 100 : null;
+    // A stitched row was forecast from its own origin, so measure it from the spot
+    // that day; today's rate would make last week's path look like a forecast error.
+    const spot = (point.origin ? observed?.get(point.origin) : undefined) ?? anchorRate;
+    const drift = spot ? ((point.q50 - spot) / spot) * 100 : null;
     const actual = observed?.get(point.target_date);
     const pub = publishedByDate.get(point.target_date);
     const boot = bootstrapByDate.get(point.target_date);

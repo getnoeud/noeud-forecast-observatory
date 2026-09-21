@@ -11,17 +11,19 @@ import {
   getLatestAssessmentPerPair,
   getLatestObservations,
   getPipelineRuns,
+  getPairVintages,
   getPointsFor,
   getPublicationSummaries,
   type CommercialComparison,
   type CoverageRow,
   type PublicationSummary,
 } from "@/lib/server/queries";
-import { summarisePath, type PathSummary } from "@/lib/analytics";
+import { summarisePath, walkForwardWindow, type PathSummary } from "@/lib/analytics";
 import {
   PAIRS,
   type EventAssessmentRow,
   type ForecastKind,
+  type ForecastPoint,
   type ForecastPath,
   type Observation,
   type Pair,
@@ -44,7 +46,7 @@ export type MiniRow = {
 
 function buildMiniRows(
   history: { observed_on: string; rate: number }[],
-  path: ForecastPath | null,
+  points: ForecastPoint[],
   anchorDate: string | null,
 ): MiniRow[] {
   const rows = new Map<string, MiniRow>();
@@ -61,7 +63,10 @@ function buildMiniRows(
       q95: null,
     });
   }
-  const anchor = anchorDate ? rows.get(anchorDate) : undefined;
+  // Pin the path to the observed rate at the origin only when no earlier vintage
+  // already forecast that date; otherwise the pin would overwrite a real prediction.
+  const covered = anchorDate ? points.some((point) => point.target_date === anchorDate) : false;
+  const anchor = anchorDate && !covered ? rows.get(anchorDate) : undefined;
   if (anchor?.actual != null) {
     anchor.floor = anchor.actual;
     anchor.band50 = 0;
@@ -71,7 +76,7 @@ function buildMiniRows(
     anchor.q05 = anchor.actual;
     anchor.q95 = anchor.actual;
   }
-  for (const point of path?.points ?? []) {
+  for (const point of points) {
     const row = rows.get(point.target_date) ?? {
       date: point.target_date,
       actual: null,
@@ -155,12 +160,22 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
       : null;
   };
 
-  const pairs = PAIRS.map((pair): PairOverview => {
+  // Recent vintages so the sparkline keeps last week's Chronos path instead of
+  // showing only the newest one. Six covers the 30-day sparkline window.
+  const recentByPair = await Promise.all(PAIRS.map((pair) => getPairVintages(pair, 6)));
+
+  const pairs = PAIRS.map((pair, pairIndex): PairOverview => {
       const weekly = pathFor(pair, "weekly_chronos");
       const daily = pathFor(pair, "daily_bootstrap");
       const publication = snapshots.find((item) => item.pair === pair) ?? null;
 
       const history = (series[pair] ?? []).slice(-30);
+      const weeklyWalkForward = walkForwardWindow(
+        recentByPair[pairIndex]
+          .filter((path) => path.vintage.kind === "weekly_chronos")
+          .map((path) => ({ origin: path.vintage.origin, points: path.points })),
+        { since: history[0]?.observed_on ?? null },
+      );
       const latest = latestObservations.find((item) => item.pair === pair) ?? null;
       const full = series[pair] ?? [];
       const previousRate = full.length > 1 ? full[full.length - 2].rate : null;
@@ -177,7 +192,7 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
         assessment: assessments.find((item) => item.pair === pair) ?? null,
         weeklySummary: summarisePath(weekly?.points ?? [], latest?.rate ?? null),
         dailySummary: summarisePath(daily?.points ?? [], latest?.rate ?? null),
-        miniRows: buildMiniRows(history, weekly, weekly?.vintage.origin ?? null),
+        miniRows: buildMiniRows(history, weeklyWalkForward, weekly?.vintage.origin ?? null),
       };
   });
 

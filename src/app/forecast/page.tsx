@@ -41,6 +41,7 @@ import {
   formatRate,
   shortHash,
 } from "@/lib/format";
+import { isExpired } from "@/lib/intelligence";
 import { getForecastModel } from "@/lib/server/forecast-view";
 import { isPair, PAIR_BASE_LABELS, PAIR_LABELS, type Pair } from "@/lib/types";
 
@@ -75,7 +76,9 @@ export default async function ForecastPage({
     latest,
     weeklySummary,
     dailySummary,
-    weeklyFan,
+    weeklyWalkForwardFan,
+    weeklyWalkForwardPoints,
+    weeklyOrigins,
     dailyWalkForwardFan,
     dailyWalkForwardPoints,
     weeklyWidths,
@@ -174,13 +177,15 @@ export default async function ForecastPage({
           </section>
 
           <ForecastFanChart
-            rows={weeklyFan}
+            rows={weeklyWalkForwardFan}
             anchorDate={weekly.vintage.origin}
+            earlierOrigins={weeklyOrigins}
             anchorRate={latest?.rate ?? null}
             title={
               <span className="flex flex-wrap items-center gap-2">
                 Weekly Chronos-2 path
-                <MonoTag>origin {formatDate(weekly.vintage.origin)}</MonoTag>
+                <MonoTag>walk-forward</MonoTag>
+                <MonoTag>current origin {formatDate(weekly.vintage.origin)}</MonoTag>
                 <MonoTag>rev {weekly.vintage.revision}</MonoTag>
                 <StatusPill
                   tone={weekly.vintage.provenance === "issued" ? "good" : "warning"}
@@ -188,8 +193,8 @@ export default async function ForecastPage({
                 />
               </span>
             }
-            description="Observed history to the left of the origin, then the full nine-quantile distribution for each of the next 30 calendar days. Shading darkens toward the median."
-            footnote={`Issued ${formatDateTime(weekly.vintage.issued_at)} from data as of ${formatDateTime(weekly.vintage.data_as_of)}. ${maturedCount} of 30 target dates have already matured and are drawn on the observed line inside the fan.`}
+            description="Every stored Monday vintage is stitched together by target date. Left of the origin line are the earlier weeks' frozen paths, each drawn for the days it covered, so you can see what the model said last week; the current vintage takes over from its own origin and runs 30 days ahead. Shading darkens toward the median."
+            footnote={`Current vintage issued ${formatDateTime(weekly.vintage.issued_at)} from data as of ${formatDateTime(weekly.vintage.data_as_of)}. ${maturedCount} of its 30 target dates have already matured. ${weeklyOrigins.length > 1 ? `${weeklyOrigins.length - 1} earlier weekly vintage${weeklyOrigins.length === 2 ? "" : "s"} shown (dotted lines mark where each began); a step in the median at a dotted line is the model revising itself on Monday. ` : ""}Each date shows the most recent vintage that covered it, so a week's path is its days 1–7 and the current vintage's longer horizons only appear beyond them.`}
             height={420}
           />
 
@@ -299,7 +304,7 @@ export default async function ForecastPage({
 
                   <TabsContent value="weekly" className="pt-4">
                     <HorizonTable
-                      points={weekly.points}
+                      points={weeklyWalkForwardPoints}
                       anchorRate={latest?.rate ?? null}
                       observed={observed}
                       bankMeans={bankMeans}
@@ -326,9 +331,14 @@ export default async function ForecastPage({
                           <ModeBadge mode={publication.mode} />
                           <MonoTag>{publication.policy_version}</MonoTag>
                           <MonoTag>snapshot {shortHash(publication.snapshot_id, 12)}</MonoTag>
-                          {assessment ? (
+                          {assessment && !isExpired(assessment) ? (
                             <DecisionBadge
                               decision={assessment.record.assessment.decision}
+                            />
+                          ) : assessment ? (
+                            <StatusPill
+                              tone="neutral"
+                              label={`Assessment expired ${formatDateTime(assessment.expires_at)}`}
                             />
                           ) : null}
                         </div>

@@ -15,8 +15,8 @@ import {
   alignByTargetDate,
   buildFanRows,
   buildTrackRows,
-  buildWalkForwardPoints,
   buildWidthRows,
+  walkForwardWindow,
   summarisePath,
   type DivergenceRow,
   type FanRow,
@@ -67,6 +67,15 @@ export type ForecastModel = {
    */
   dailyWalkForwardFan: FanRow[];
   dailyWalkForwardPoints: (ForecastPoint & { origin: string })[];
+  /**
+   * The same merge for the weekly Chronos vintages, as of the selected origin:
+   * last week's frozen path stays on the chart after Monday's new vintage
+   * arrives, and the new one takes over from its own start date.
+   */
+  weeklyWalkForwardFan: FanRow[];
+  weeklyWalkForwardPoints: (ForecastPoint & { origin: string })[];
+  /** Origins of the weekly vintages contributing to the walk-forward, oldest first. */
+  weeklyOrigins: string[];
   weeklyWidths: WidthRow[];
   dailyWidths: WidthRow[];
   divergence: DivergenceRow[];
@@ -136,9 +145,17 @@ export const getForecastModel = cache(
     const weekly = pick(weeklyPaths, options.weeklyOrigin);
     const daily = pick(dailyPaths, options.dailyOrigin);
 
-    const dailyWalkForwardPoints = buildWalkForwardPoints(
+    const historyStart = observations.slice(-historyDays)[0]?.observed_on ?? null;
+    const dailyWalkForwardPoints = walkForwardWindow(
       dailyPaths.map((path) => ({ origin: path.vintage.origin, points: path.points })),
+      { since: historyStart },
     );
+    const weeklyWalkForwardPoints = walkForwardWindow(
+      weeklyPaths.map((path) => ({ origin: path.vintage.origin, points: path.points })),
+      { asOf: weekly?.vintage.origin ?? null, since: historyStart },
+    );
+    const weeklyOrigins = Array.from(new Set(weeklyWalkForwardPoints.map((point) => point.origin)))
+      .sort();
 
     const window = observations.slice(-historyDays);
     const latest = observations[observations.length - 1] ?? null;
@@ -169,6 +186,18 @@ export const getForecastModel = cache(
       dailyFan: buildFanRows(series, daily?.points ?? [], daily?.vintage.origin ?? null),
       dailyWalkForwardFan: buildFanRows(series, dailyWalkForwardPoints),
       dailyWalkForwardPoints,
+      // Pin the fan to the observed rate at the origin only when no earlier
+      // vintage already forecast that date — otherwise the pin would overwrite a
+      // genuine prediction with a degenerate one.
+      weeklyWalkForwardFan: buildFanRows(
+        series,
+        weeklyWalkForwardPoints,
+        weekly && !weeklyWalkForwardPoints.some((point) => point.target_date === weekly.vintage.origin)
+          ? weekly.vintage.origin
+          : null,
+      ),
+      weeklyWalkForwardPoints,
+      weeklyOrigins,
       weeklyWidths: buildWidthRows(weekly?.points ?? []),
       dailyWidths: buildWidthRows(daily?.points ?? []),
       divergence: alignByTargetDate(weekly?.points ?? [], daily?.points ?? []),

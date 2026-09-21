@@ -231,8 +231,11 @@ export default function MethodologyPage() {
               </li>
               <li>
                 <strong className="text-foreground">The origin marker matters.</strong>{" "}
-                Everything left of it is realised; everything right of it was unknown when the
-                vintage was issued.
+                Everything right of it is the current vintage looking forward. To its left the
+                observed line is drawn beside the <em>earlier</em> vintages&apos; frozen paths,
+                each for the days it covered, so last week&apos;s prediction stays visible after
+                Monday&apos;s new one arrives. A step in the median where one takes over from
+                another is the model revising itself.
               </li>
             </ul>
           </CardContent>

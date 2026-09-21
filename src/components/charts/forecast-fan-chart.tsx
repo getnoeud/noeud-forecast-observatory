@@ -144,6 +144,7 @@ export function ForecastFanChart({
   rows,
   anchorDate,
   anchorLabel = "origin",
+  earlierOrigins = [],
   anchorRate,
   title,
   description,
@@ -156,6 +157,8 @@ export function ForecastFanChart({
   rows: FanRow[];
   anchorDate?: string | null;
   anchorLabel?: string;
+  /** Start dates of earlier vintages whose paths are still drawn, marked without a label. */
+  earlierOrigins?: string[];
   anchorRate?: number | null;
   title: React.ReactNode;
   description?: React.ReactNode;
@@ -251,6 +254,18 @@ export function ForecastFanChart({
           />
         ))}
 
+        {earlierOrigins
+          .filter((origin) => origin !== anchorDate)
+          .map((origin) => (
+            <ReferenceLine
+              key={`origin-${origin}`}
+              x={origin}
+              stroke="var(--muted-foreground)"
+              strokeOpacity={0.5}
+              strokeDasharray="2 4"
+              strokeWidth={1}
+            />
+          ))}
         {anchorDate ? (
           <ReferenceLine
             x={anchorDate}

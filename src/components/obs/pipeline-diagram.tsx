@@ -64,11 +64,11 @@ export function PipelineDiagram() {
           {/* Deployment brackets */}
           <line x1={8} y1={22} x2={morningEnd} y2={22} stroke="var(--chart-1)" strokeWidth={2} />
           <text x={8} y={14} fill="var(--muted-foreground)" fontSize="10" letterSpacing="1">
-            DAILY 05:00 · daily-market-cycle
+            DAILY 05:00 · daily-fx-forecast
           </text>
           <line x1={middayStart} y1={22} x2={middayEnd} y2={22} stroke="var(--chart-2)" strokeWidth={2} />
           <text x={middayStart} y={14} fill="var(--muted-foreground)" fontSize="10" letterSpacing="1">
-            MON–FRI 12:00 · midday-commercial-cycle
+            MON–FRI 12:00 · midday-llm-intelligence
           </text>
 
           {stages.map((stage, index) => (

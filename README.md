@@ -15,8 +15,8 @@ The backend runs two deployments, and the observatory reflects both:
 
 | Deployment | Schedule (Africa/Accra) | What it writes |
 | --- | --- | --- |
-| `daily-market-cycle` | Daily 05:00 | Provider rates, Monday Chronos-2 vintage, daily bootstrap vintage |
-| `midday-commercial-cycle` | Mon–Fri 12:00 | Bank rate cards, event assessments (valid midday → midday), shadow snapshots |
+| `daily-fx-forecast` | Daily 05:00 | Provider rates, Monday Chronos-2 vintage, daily bootstrap vintage |
+| `midday-llm-intelligence` | Mon–Fri 12:00 | Bank rate cards, event assessments (valid midday → midday), shadow snapshots |
 
 It is read-only. Nothing on this dashboard writes to the forecasting database.
 
@@ -165,12 +165,22 @@ ingestion by request kind, and a live row count for every table in the schema.
   (`?origin=…`, `?date=…`), so any historical state is linkable. The decision
   history strip on `/intelligence` doubles as navigation — click a cell to
   reopen that day.
-- **Walk-forward series.** The daily bootstrap is re-issued every day, so a
-  single vintage only ever looks forward. Its fan chart and horizon table are
-  instead built from `buildWalkForwardPoints` (`src/lib/analytics.ts`), which
-  merges every stored origin and lets each date keep its most recently issued
-  forecast — a matured prediction is never dropped just because a newer
-  vintage's window moved past it.
+- **Walk-forward series.** A single vintage only ever looks forward, so when a
+  newer one arrives the earlier one would vanish from view. Both the daily
+  bootstrap *and* the weekly Chronos-2 fan charts and path tables are instead
+  built from `buildWalkForwardPoints` / `walkForwardWindow`
+  (`src/lib/analytics.ts`), which merge every stored origin and let each date
+  keep its most recently issued forecast. Last week's Chronos path therefore
+  stays on the chart after Monday's new vintage arrives (dotted lines mark where
+  each began, and the step at a Monday is the model revising itself). Opening an
+  older Chronos origin shows the world *as of* that origin. The overview
+  sparklines use the same merge.
+- **Assessments lapse.** Event assessments run Mon–Fri at 12:00 and are valid
+  midday to midday, so the newest row can be days old — a Monday morning still
+  holds Friday's. The overview, the pair cards, the snapshot table and the Event
+  Intelligence page mark a lapsed assessment as *Expired* (with when it was made
+  and when the next run is due) instead of presenting it as today's view, and
+  the "current event views" tile counts only assessments that have not lapsed.
 - **Weekends are shaded.** FX rates are quoted every calendar day here, but the
   market is shut at the weekend: the provider repeats Friday's rate while the
   models still forecast Saturday and Sunday. Every date-based chart draws a

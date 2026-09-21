@@ -78,12 +78,15 @@ function LeaseTable({ jobs, label }: { jobs: LeaseJob[]; label: string }) {
 /** The schedules the backend registers; anything else seen in the ledger is listed too. */
 const DEPLOYMENTS = [
   {
-    name: "daily-market-cycle",
+    name: "daily-fx-forecast",
+    /** Ledger rows written before the rename. */
+    aliases: ["daily-market-cycle"],
     schedule: "Daily 05:00",
     does: "Ingest and repair rates, Monday Chronos-2, daily bootstrap",
   },
   {
-    name: "midday-commercial-cycle",
+    name: "midday-llm-intelligence",
+    aliases: [] as string[],
     schedule: "Mon–Fri 12:00",
     does: "Check the morning archive, collect bank rate cards, event intelligence, shadow snapshots",
   },
@@ -181,10 +184,22 @@ export default async function OperationsPage() {
           {[
             ...DEPLOYMENTS,
             ...Array.from(new Set(runs.map((run) => run.deployment_name)))
-              .filter((name) => !DEPLOYMENTS.some((item) => item.name === name))
-              .map((name) => ({ name, schedule: "Unscheduled / manual", does: "" })),
+              .filter(
+                (name) =>
+                  !DEPLOYMENTS.some((item) => item.name === name || item.aliases.includes(name)),
+              )
+              .map((name) => ({
+                name,
+                aliases: [] as string[],
+                schedule: "Unscheduled / manual",
+                does: "",
+              })),
           ].map((deployment) => {
-            const own = runs.filter((run) => run.deployment_name === deployment.name);
+            const own = runs.filter(
+              (run) =>
+                run.deployment_name === deployment.name ||
+                deployment.aliases.includes(run.deployment_name),
+            );
             const last = own[0] ?? null;
             const ok = own.filter((run) => run.state === "succeeded").length;
             return (

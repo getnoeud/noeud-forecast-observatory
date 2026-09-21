@@ -191,6 +191,9 @@ export type PublicationSummary = {
   point_count: number;
   adjusted_points: number;
   max_abs_delta_pct: number | null;
+  /** The assessment this snapshot was built from: when it was made and when it lapses. */
+  assessed_at: string;
+  expires_at: string;
 };
 
 export const getPublicationSummaries = cache(async (): Promise<PublicationSummary[]> => {
@@ -199,11 +202,13 @@ export const getPublicationSummaries = cache(async (): Promise<PublicationSummar
             s.policy_version, s.approved_by,
             count(p.*)::int as point_count,
             count(*) filter (where p.selection = 'event_candidate')::int as adjusted_points,
-            max(abs(p.adjustment_delta_pct)) as max_abs_delta_pct
+            max(abs(p.adjustment_delta_pct)) as max_abs_delta_pct,
+            a.as_of as assessed_at, a.expires_at
        from ${S()}.published_forecast_snapshots s
+       join ${S()}.event_assessments a using (assessment_id)
        left join ${S()}.published_forecast_points p using (snapshot_id)
       group by s.snapshot_id, s.assessment_id, s.pair, s.created_at, s.mode,
-               s.policy_version, s.approved_by
+               s.policy_version, s.approved_by, a.as_of, a.expires_at
       order by s.created_at desc`,
   );
 });

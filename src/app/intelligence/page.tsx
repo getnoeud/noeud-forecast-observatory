@@ -66,6 +66,7 @@ import {
   getAssessmentsForDay,
   getDecisionHistory,
 } from "@/lib/server/queries";
+import { formatRunTime, nextMiddayRun, requestNow } from "@/lib/schedule";
 import { isPair, PAIR_BASE_LABELS, PAIRS, type Pair } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -109,6 +110,14 @@ export default async function IntelligencePage({
   );
   const selected = ordered.find((row) => row.pair === pair) ?? null;
   const isViewingHistory = Boolean(selectedDay) && selectedDay !== days[0]?.day;
+
+  // The newest recorded day is not necessarily a live one: assessments run on
+  // weekdays at 12:00 and lapse at the next midday, so a Monday morning still
+  // holds Friday's. Say so rather than presenting it as today's view.
+  const now = requestNow();
+  const newestLapsed =
+    !isViewingHistory && ordered.length > 0 && ordered.every((row) => isExpired(row, now));
+  const nextRun = nextMiddayRun(new Date(now));
 
   if (!ordered.length) {
     return (
@@ -199,6 +208,16 @@ export default async function IntelligencePage({
         }
       />
 
+      {newestLapsed ? (
+        <HistoricalNotice>
+          These are the <strong>latest recorded</strong> assessments (
+          {formatDateTime(ordered[0].as_of)}), and they have <strong>lapsed</strong> — each is
+          valid midday to midday and the cycle only runs Monday–Friday at 12:00. Nothing has been
+          assessed since. The next run is <strong>{formatRunTime(nextRun)}</strong> (
+          {formatRelative(nextRun.toISOString(), now)}).
+        </HistoricalNotice>
+      ) : null}
+
       {isViewingHistory ? (
         <HistoricalNotice>
           Showing the assessments recorded on <strong>{formatDate(selectedDay)}</strong>. These
@@ -218,7 +237,11 @@ export default async function IntelligencePage({
           label="Adjustment proposals"
           value={proposals}
           unit={`of ${ordered.length}`}
-          hint="A `review_adjustment` decision is a proposal for review. Publication stays a separate, explicitly approved step."
+          hint={
+            newestLapsed
+              ? "From assessments that have already lapsed, so none of these is a current proposal. Publication stays a separate, explicitly approved step."
+              : "A `review_adjustment` decision is a proposal for review. Publication stays a separate, explicitly approved step."
+          }
           accent="var(--serious)"
         />
         <StatTile

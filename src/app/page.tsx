@@ -36,7 +36,10 @@ import {
   formatRelative,
   shortHash,
 } from "@/lib/format";
+import { isExpired } from "@/lib/intelligence";
+import { formatRunTime, nextMiddayRun, requestNow } from "@/lib/schedule";
 import { getOverview } from "@/lib/server/views";
+import { PAIRS } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -81,11 +84,25 @@ export default async function OverviewPage() {
 
   const observedDays = coverage[0]?.observed_days ?? 0;
   const continuous = coverage.every((row) => row.observed_days === row.span_days);
-  const decisions = pairs
-    .map((entry) => entry.assessment?.record.assessment.decision)
-    .filter(Boolean) as string[];
-  const shadowCount = publications.filter((item) => item.mode === "shadow").length;
-  const adjustedPoints = publications.reduce((sum, item) => sum + item.adjusted_points, 0);
+  // Event assessments are made on weekdays at 12:00 and valid midday to midday.
+  // The newest row per pair can therefore be days old (a Monday morning still
+  // holds Friday's), so "today's decisions" only counts ones that have not lapsed.
+  const now = requestNow();
+  const assessments = pairs.map((entry) => entry.assessment).filter((item) => item !== null);
+  const current = assessments.filter((item) => !isExpired(item, now));
+  const currentDecisions = current.map((item) => item.record.assessment.decision);
+  const lastAssessedAt = assessments.reduce<string | null>(
+    (latest, item) => (latest === null || item.as_of > latest ? item.as_of : latest),
+    null,
+  );
+  const nextRun = nextMiddayRun(new Date(now));
+
+  const expiredAt = (item: { expires_at: string }) => new Date(item.expires_at).getTime() < now;
+  const latestSnapshots = PAIRS.map((pair) => publications.find((item) => item.pair === pair)).filter(
+    (item) => item !== undefined,
+  );
+  const currentSnapshots = latestSnapshots.filter((item) => !expiredAt(item));
+  const adjustedPoints = currentSnapshots.reduce((sum, item) => sum + item.adjusted_points, 0);
 
   return (
     <>
@@ -132,10 +149,24 @@ export default async function OverviewPage() {
           accent="var(--chart-7)"
         />
         <StatTile
-          label="Event decisions today"
-          value={decisions.length ? decisions.filter((d) => d !== "hold").length : 0}
-          unit={`of ${decisions.length || 3} non-hold`}
-          hint={`${shadowCount} shadow snapshot${shadowCount === 1 ? "" : "s"} published · ${adjustedPoints} event-adjusted point${adjustedPoints === 1 ? "" : "s"}`}
+          label="Current event views"
+          value={current.length}
+          unit={`of ${PAIRS.length} pairs`}
+          hint={
+            current.length ? (
+              `${currentDecisions.filter((d) => d !== "hold").length} non-hold · ${currentSnapshots.length} current shadow snapshot${currentSnapshots.length === 1 ? "" : "s"} · ${adjustedPoints} event-adjusted point${adjustedPoints === 1 ? "" : "s"}`
+            ) : (
+              <span className="flex flex-col gap-1.5">
+                <span>
+                  <StatusPill tone="warning" label="All assessments expired" />
+                </span>
+                <span>
+                  Last run {lastAssessedAt ? formatDateTime(lastAssessedAt) : "—"}. Assessments run
+                  Mon–Fri 12:00; next {formatRunTime(nextRun)} ({formatRelative(nextRun.toISOString(), now)}).
+                </span>
+              </span>
+            )
+          }
           accent="var(--chart-2)"
         />
       </section>
@@ -189,6 +220,7 @@ export default async function OverviewPage() {
                     <TableHead className="text-right">Points</TableHead>
                     <TableHead className="text-right">Adjusted</TableHead>
                     <TableHead className="text-right">Max |Δ|</TableHead>
+                    <TableHead>Valid</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
                 }
@@ -211,8 +243,15 @@ export default async function OverviewPage() {
                         ? "—"
                         : formatPercent(item.max_abs_delta_pct, 2)}
                     </TableCell>
+                    <TableCell>
+                      {expiredAt(item) ? (
+                        <StatusPill tone="neutral" label="Expired" />
+                      ) : (
+                        <StatusPill tone="good" label="Current" />
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-                      {formatRelative(item.created_at)}
+                      {formatRelative(item.created_at, now)}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -74,6 +74,12 @@ export type ForecastModel = {
    */
   weeklyWalkForwardFan: FanRow[];
   weeklyWalkForwardPoints: (ForecastPoint & { origin: string })[];
+  /**
+   * The weekly vintage the current publication snapshot was actually built on.
+   * A snapshot is made from one vintage, so once a newer Monday vintage arrives
+   * it describes the old one until the next assessment run publishes again.
+   */
+  publicationBase: ForecastPath | null;
   /** Origins of the weekly vintages contributing to the walk-forward, oldest first. */
   weeklyOrigins: string[];
   weeklyWidths: WidthRow[];
@@ -198,6 +204,12 @@ export const getForecastModel = cache(
       ),
       weeklyWalkForwardPoints,
       weeklyOrigins,
+      publicationBase:
+        weeklyPaths.find(
+          (path) =>
+            path.vintage.forecast_id ===
+            publications.find((item) => item.pair === pair)?.weekly_forecast_id,
+        ) ?? null,
       weeklyWidths: buildWidthRows(weekly?.points ?? []),
       dailyWidths: buildWidthRows(daily?.points ?? []),
       divergence: alignByTargetDate(weekly?.points ?? [], daily?.points ?? []),

@@ -79,6 +79,7 @@ export default async function ForecastPage({
     weeklyWalkForwardFan,
     weeklyWalkForwardPoints,
     weeklyOrigins,
+    publicationBase,
     dailyWalkForwardFan,
     dailyWalkForwardPoints,
     weeklyWidths,
@@ -95,6 +96,9 @@ export default async function ForecastPage({
   } = model;
 
   const observed = new Map(history.map((item) => [item.observed_on, item.rate]));
+  const snapshotIsOlder = Boolean(
+    publicationBase && weekly && publicationBase.vintage.forecast_id !== weekly.vintage.forecast_id,
+  );
   const chronos = weekly?.vintage.model_json;
   const recipe = daily?.vintage.model_json?.recipe;
   const maturedCount = weekly
@@ -309,6 +313,7 @@ export default async function ForecastPage({
                       observed={observed}
                       bankMeans={bankMeans}
                       published={publication?.points}
+                      publishedOrigin={publicationBase?.vintage.origin}
                     />
                   </TabsContent>
 
@@ -348,13 +353,33 @@ export default async function ForecastPage({
                           shifts an interval; it can only move the selected point, and only when
                           the absolute delta exceeds 1%.
                         </ReadingNote>
+                        {snapshotIsOlder && publicationBase ? (
+                          <HistoricalNotice>
+                            This snapshot was built on the{" "}
+                            <strong>{formatDate(publicationBase.vintage.origin)}</strong> Chronos
+                            vintage (created {formatDateTime(publication.created_at)}), not the
+                            current <strong>{formatDate(weekly.vintage.origin)}</strong> one, so the
+                            medians and published rates below are that older vintage&apos;s. The
+                            next assessment run publishes a snapshot from the current vintage; until
+                            then the newest vintage&apos;s medians sit on the right for comparison.
+                          </HistoricalNotice>
+                        ) : null}
                         <HorizonTable
-                          points={weekly.points}
-                          anchorRate={latest?.rate ?? null}
+                          points={publicationBase?.points ?? weekly.points}
+                          anchorRate={
+                            observed.get((publicationBase ?? weekly).vintage.origin) ??
+                            latest?.rate ??
+                            null
+                          }
                           observed={observed}
                           bankMeans={bankMeans}
                           published={publication.points}
                           bootstrap={dailyWalkForwardPoints}
+                          latestVintage={
+                            snapshotIsOlder
+                              ? { origin: weekly.vintage.origin, points: weekly.points }
+                              : undefined
+                          }
                         />
                       </>
                     ) : null}

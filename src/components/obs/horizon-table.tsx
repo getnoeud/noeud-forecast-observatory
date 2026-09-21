@@ -24,6 +24,8 @@ export function HorizonTable({
   observed,
   bootstrap,
   bankMeans,
+  publishedOrigin,
+  latestVintage,
   pageSize = 15,
 }: {
   points: WalkForwardPoint[];
@@ -34,6 +36,15 @@ export function HorizonTable({
   bootstrap?: ForecastPoint[];
   /** Cross-bank mean transfer-selling rate by date (a commercial, not a model, basis). */
   bankMeans?: { date: string; mean: number; bankCount: number }[];
+  /**
+   * Origin of the vintage the published snapshot was built on. When set, a
+   * stitched row from any other vintage shows no published rate: pairing a
+   * snapshot with a different vintage's median puts two forecasts side by side
+   * as if they were one.
+   */
+  publishedOrigin?: string;
+  /** The newest vintage, shown beside a snapshot that was built on an older one. */
+  latestVintage?: { origin: string; points: ForecastPoint[] };
   pageSize?: number;
 }) {
   const publishedByDate = new Map(
@@ -44,6 +55,8 @@ export function HorizonTable({
   );
   const bankByDate = new Map((bankMeans ?? []).map((row) => [row.date, row]));
   const showBank = bankByDate.size > 0;
+  const latestByDate = new Map((latestVintage?.points ?? []).map((point) => [point.target_date, point]));
+  const showLatest = latestByDate.size > 0 && Boolean(published?.length);
   const showOrigin = points.some((point) => point.origin);
   const showBootstrap = Boolean(bootstrap?.length);
 
@@ -72,7 +85,27 @@ export function HorizonTable({
       {showBank ? <TableHead className="text-right">Bank mean</TableHead> : null}
       {showBank ? <TableHead className="text-right">Bank vs median</TableHead> : null}
       {showBootstrap ? <TableHead className="text-right">Bootstrap median</TableHead> : null}
-      {published?.length ? <TableHead>Published</TableHead> : null}
+      {published?.length ? (
+        <TableHead
+          title={
+            publishedOrigin
+              ? `Shadow snapshot built on the ${formatShortDate(publishedOrigin)} vintage`
+              : undefined
+          }
+        >
+          Published
+        </TableHead>
+      ) : null}
+      {showLatest ? (
+        <TableHead className="text-right" title="Median of the newest weekly vintage for the same date">
+          Latest median{latestVintage ? ` (${formatShortDate(latestVintage.origin)})` : ""}
+        </TableHead>
+      ) : null}
+      {showLatest ? (
+        <TableHead className="text-right" title="Published rate against the newest vintage's median">
+          Published vs latest
+        </TableHead>
+      ) : null}
     </TableRow>
   );
 
@@ -82,7 +115,10 @@ export function HorizonTable({
     const spot = (point.origin ? observed?.get(point.origin) : undefined) ?? anchorRate;
     const drift = spot ? ((point.q50 - spot) / spot) * 100 : null;
     const actual = observed?.get(point.target_date);
-    const pub = publishedByDate.get(point.target_date);
+    // Only pair a snapshot with rows from the vintage it was built on.
+    const sameVintage = !publishedOrigin || !point.origin || point.origin === publishedOrigin;
+    const pub = sameVintage ? publishedByDate.get(point.target_date) : undefined;
+    const latest = latestByDate.get(point.target_date);
     const boot = bootstrapByDate.get(point.target_date);
     const bank = bankByDate.get(point.target_date);
     const bankGap = bank ? ((bank.mean - point.q50) / point.q50) * 100 : null;
@@ -195,6 +231,20 @@ export function HorizonTable({
               </div>
             ) : (
               <span className="text-xs text-muted-foreground">—</span>
+            )}
+          </TableCell>
+        ) : null}
+        {showLatest ? (
+          <TableCell className="tnum text-right font-mono text-xs">
+            {latest ? formatRate(latest.q50) : <span className="text-muted-foreground">—</span>}
+          </TableCell>
+        ) : null}
+        {showLatest ? (
+          <TableCell className="tnum text-right font-mono text-xs">
+            {pub && latest ? (
+              formatPercent(((pub.selected_rate - latest.q50) / latest.q50) * 100, 2, true)
+            ) : (
+              <span className="text-muted-foreground">—</span>
             )}
           </TableCell>
         ) : null}

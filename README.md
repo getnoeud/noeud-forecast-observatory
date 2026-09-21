@@ -181,6 +181,13 @@ ingestion by request kind, and a live row count for every table in the schema.
   Intelligence page mark a lapsed assessment as *Expired* (with when it was made
   and when the next run is due) instead of presenting it as today's view, and
   the "current event views" tile counts only assessments that have not lapsed.
+- **A snapshot belongs to one vintage.** A shadow snapshot is built from a single
+  Chronos vintage, so after a new Monday vintage arrives it still describes the
+  old one until the next assessment run publishes again. The path tables never
+  pair a snapshot with a different vintage's median: the weekly tab shows a
+  published rate only on rows from the snapshot's own vintage, and the Published
+  tab shows that vintage (with a notice) plus the newest vintage's median and the
+  difference alongside.
 - **Weekends are shaded.** FX rates are quoted every calendar day here, but the
   market is shut at the weekend: the provider repeats Friday's rate while the
   models still forecast Saturday and Sunday. Every date-based chart draws a

@@ -580,7 +580,12 @@ export function buildPublishedWalkForward(
   snapshots: { createdAt: string; points: PublishedPoint[] }[],
 ): PublishedPoint[] {
   const byDate = new Map<string, PublishedPoint>();
-  const ordered = [...snapshots].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  // createdAt is typed as string but the driver hands back a native Date for a
+  // timestamptz column unless the query casts it — compare by instant so this
+  // holds regardless of which shape actually arrives.
+  const ordered = [...snapshots].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
   for (const snapshot of ordered) {
     for (const point of snapshot.points) {
       byDate.set(point.target_date, point);

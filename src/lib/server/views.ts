@@ -13,12 +13,18 @@ import {
   getPipelineRuns,
   getPairVintages,
   getPointsFor,
+  getPublicationHistory,
   getPublicationSummaries,
   type CommercialComparison,
   type CoverageRow,
   type PublicationSummary,
 } from "@/lib/server/queries";
-import { summarisePath, walkForwardWindow, type PathSummary } from "@/lib/analytics";
+import {
+  buildPublishedWalkForward,
+  summarisePath,
+  walkForwardWindow,
+  type PathSummary,
+} from "@/lib/analytics";
 import {
   PAIRS,
   type EventAssessmentRow,
@@ -112,6 +118,8 @@ export type PairOverview = {
   weeklySummary: PathSummary | null;
   dailySummary: PathSummary | null;
   miniRows: MiniRow[];
+  /** Dates (within the mini chart's window) where the LLM's proposed rate was selected. */
+  adjustments: { date: string; rate: number; base: number; deltaPct: number }[];
 };
 
 export type OverviewModel = {
@@ -163,6 +171,12 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
   // Recent vintages so the sparkline keeps last week's Chronos path instead of
   // showing only the newest one. Six covers the 30-day sparkline window.
   const recentByPair = await Promise.all(PAIRS.map((pair) => getPairVintages(pair, 6)));
+  // Every stored publication snapshot per pair, so the mini chart can mark a
+  // date where the LLM's proposed rate was selected even though that date may
+  // have been covered by an earlier, since-superseded snapshot.
+  const publicationHistoryByPair = await Promise.all(
+    PAIRS.map((pair) => getPublicationHistory(pair, 90)),
+  );
 
   const pairs = PAIRS.map((pair, pairIndex): PairOverview => {
       const weekly = pathFor(pair, "weekly_chronos");
@@ -180,6 +194,23 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
       const full = series[pair] ?? [];
       const previousRate = full.length > 1 ? full[full.length - 2].rate : null;
 
+      const publishedWalkForward = buildPublishedWalkForward(
+        publicationHistoryByPair[pairIndex].map((snapshot) => ({
+          createdAt: snapshot.created_at,
+          points: snapshot.points,
+        })),
+      );
+      const adjustments = publishedWalkForward
+        .filter((point) => point.selection === "event_candidate")
+        .map((point) => ({
+          date: point.target_date,
+          rate: point.selected_rate,
+          base: point.base_q50,
+          deltaPct:
+            point.adjustment_delta_pct ??
+            ((point.selected_rate - point.base_q50) / point.base_q50) * 100,
+        }));
+
       return {
         pair,
         latest,
@@ -193,6 +224,7 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
         weeklySummary: summarisePath(weekly?.points ?? [], latest?.rate ?? null),
         dailySummary: summarisePath(daily?.points ?? [], latest?.rate ?? null),
         miniRows: buildMiniRows(history, weeklyWalkForward, weekly?.vintage.origin ?? null),
+        adjustments,
       };
   });
 

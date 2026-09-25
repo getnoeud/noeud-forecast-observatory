@@ -21,6 +21,7 @@ import {
   TooltipRow,
   TooltipShell,
 } from "@/components/charts/frame";
+import { filledMarker } from "@/components/charts/markers";
 import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { PAIR_COLOR_VAR } from "@/components/obs/badges";
 import { formatDate, formatPercent, formatRate, formatShortDate } from "@/lib/format";
@@ -122,6 +123,8 @@ export type MiniRow = {
   q95: number | null;
 };
 
+const ADJUSTMENT_COLOR = "var(--serious)";
+
 /**
  * Sparkline used on the pair cards: observed history, then the median path.
  *
@@ -134,10 +137,13 @@ export function MiniFan({
   rows,
   pair,
   height = 120,
+  adjustments = [],
 }: {
   rows: MiniRow[];
   pair: Pair;
   height?: number;
+  /** Dates where the publication policy selected the LLM's proposed rate over the base median. */
+  adjustments?: { date: string; rate: number; base: number; deltaPct: number }[];
 }) {
   const color = PAIR_COLOR_VAR[pair];
   const gradientId = `mini-${pair}`;
@@ -146,17 +152,26 @@ export function MiniFan({
     const values = rows.flatMap((row) =>
       [row.actual, row.median].filter((value): value is number => value !== null),
     );
+    for (const item of adjustments) values.push(item.rate);
     if (!values.length) return ["auto", "auto"];
     const min = Math.min(...values);
     const max = Math.max(...values);
     const pad = (max - min) * 0.18 || 0.02;
     return [min - pad, max + pad];
-  }, [rows]);
+  }, [rows, adjustments]);
+
+  const data = React.useMemo(() => {
+    const adjByDate = new Map(adjustments.map((item) => [item.date, item]));
+    return rows.map((row) => ({
+      ...row,
+      adjustedRate: adjByDate.get(row.date)?.rate ?? null,
+    }));
+  }, [rows, adjustments]);
 
   return (
     <div style={{ height }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={rows} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
+        <ComposedChart data={data} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={color} stopOpacity={0.26} />
@@ -182,11 +197,20 @@ export function MiniFan({
             isAnimationActive={false}
             connectNulls
           />
+          {adjustments.length ? (
+            <Line
+              dataKey="adjustedRate"
+              stroke="none"
+              dot={filledMarker("diamond", ADJUSTMENT_COLOR, 3.5, 1)}
+              isAnimationActive={false}
+              connectNulls={false}
+            />
+          ) : null}
           <Tooltip
             cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
-              const row = payload[0].payload as MiniRow;
+              const row = payload[0].payload as MiniRow & { adjustedRate?: number | null };
               return (
                 <TooltipShell title={formatShortDate(row.date)}>
                   {row.actual !== null ? (
@@ -204,6 +228,14 @@ export function MiniFan({
                         value={`${formatRate(row.q05)} – ${formatRate(row.q95)}`}
                       />
                     </>
+                  ) : null}
+                  {row.adjustedRate != null ? (
+                    <TooltipRow
+                      label="LLM selected"
+                      value={formatRate(row.adjustedRate)}
+                      color={ADJUSTMENT_COLOR}
+                      emphasis
+                    />
                   ) : null}
                 </TooltipShell>
               );

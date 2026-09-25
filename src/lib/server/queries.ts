@@ -731,8 +731,8 @@ export const getCommercialComparisons = cache(
 export const getPublicationHistory = cache(
   async (pair: Pair, limit = 60): Promise<PublishedSnapshot[]> => {
     const snapshots = await query<Omit<PublishedSnapshot, "points">>(
-      `select snapshot_id, assessment_id, pair, created_at, mode, policy_version,
-              weekly_forecast_id, approved_by
+      `select snapshot_id, assessment_id, pair, created_at::text as created_at, mode,
+              policy_version, weekly_forecast_id, approved_by
          from ${S()}.published_forecast_snapshots
         where pair = $1
         order by created_at asc

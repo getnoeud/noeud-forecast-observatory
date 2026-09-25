@@ -60,7 +60,12 @@ export function PairCard({ overview }: { overview: PairOverview }) {
           </Link>
         </div>
 
-        <MiniFan rows={overview.miniRows} pair={pair} height={132} />
+        <MiniFan
+          rows={overview.miniRows}
+          pair={pair}
+          height={132}
+          adjustments={overview.adjustments}
+        />
 
         <dl className="grid grid-cols-3 gap-px border-t bg-border">
           <div className="bg-card px-3 py-2.5">

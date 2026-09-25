@@ -173,3 +173,41 @@ export const GRID_PROPS = {
   strokeDasharray: "0",
   vertical: false,
 } as const;
+
+/**
+ * A small pressed/unpressed toggle for an optional chart overlay — the "Bank
+ * mean" and "LLM adjustment" style controls. A coloured dot carries the
+ * series' identity so the toggle doubles as a legend swatch.
+ */
+export function ToggleChip({
+  active,
+  onClick,
+  color,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  color: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[0.7rem] font-medium transition-colors",
+        active
+          ? "border-transparent bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <span
+        aria-hidden
+        className="inline-block size-2 rounded-full"
+        style={{ background: color, opacity: active ? 1 : 0.35 }}
+      />
+      {children}
+    </button>
+  );
+}

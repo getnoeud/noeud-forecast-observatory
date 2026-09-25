@@ -726,3 +726,35 @@ export const getCommercialComparisons = cache(
     );
   },
 );
+
+/** Every stored shadow/approved snapshot for one pair, oldest first, with its points. */
+export const getPublicationHistory = cache(
+  async (pair: Pair, limit = 60): Promise<PublishedSnapshot[]> => {
+    const snapshots = await query<Omit<PublishedSnapshot, "points">>(
+      `select snapshot_id, assessment_id, pair, created_at, mode, policy_version,
+              weekly_forecast_id, approved_by
+         from ${S()}.published_forecast_snapshots
+        where pair = $1
+        order by created_at asc
+        limit $2`,
+      [pair, limit],
+    );
+    if (!snapshots.length) return [];
+    const points = await query<PublishedPoint & { snapshot_id: string }>(
+      `select snapshot_id, horizon, target_date::text as target_date, base_q05, base_q50,
+              base_q95, selected_rate, adjustment_delta_pct, selection
+         from ${S()}.published_forecast_points
+        where snapshot_id = any($1::text[])
+        order by snapshot_id, horizon`,
+      [snapshots.map((snapshot) => snapshot.snapshot_id)],
+    );
+    const grouped: Record<string, PublishedPoint[]> = {};
+    for (const { snapshot_id, ...point } of points) {
+      (grouped[snapshot_id] ??= []).push(point);
+    }
+    return snapshots.map((snapshot) => ({
+      ...snapshot,
+      points: grouped[snapshot.snapshot_id] ?? [],
+    }));
+  },
+);

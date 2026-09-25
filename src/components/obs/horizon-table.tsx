@@ -3,6 +3,7 @@ import { PaginatedTable } from "@/components/obs/paginated-table";
 import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { bandWidthPct } from "@/lib/analytics";
 import { formatDate, formatPercent, formatRate, formatShortDate, formatWeekday } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { ForecastPoint, PublishedPoint } from "@/lib/types";
 
 type WalkForwardPoint = ForecastPoint & { origin?: string };
@@ -12,10 +13,10 @@ type WalkForwardPoint = ForecastPoint & { origin?: string };
  * table, and the release contract requires all thirty horizons to exist, so
  * nothing is dropped — only paged.
  *
- * When a row carries its own `origin` (the walk-forward bootstrap series,
- * merged from many stored vintages), an "Issued" column names which vintage
- * produced it — the "Day" number alone stops meaning "days from a single
- * origin" once rows come from different origins.
+ * When a row carries its own `origin` (a walk-forward series merged from many
+ * stored vintages), an "Issued" column names which vintage produced it — the
+ * "Day" number alone stops meaning "days from a single origin" once rows come
+ * from different origins.
  */
 export function HorizonTable({
   points,
@@ -24,27 +25,21 @@ export function HorizonTable({
   observed,
   bootstrap,
   bankMeans,
-  publishedOrigin,
-  latestVintage,
   pageSize = 15,
 }: {
   points: WalkForwardPoint[];
   anchorRate: number | null;
+  /**
+   * Every published row for these target dates, already merged across every
+   * stored snapshot (`buildPublishedWalkForward`) so a date shows whatever was
+   * most recently published for it, not just the current snapshot's own window.
+   */
   published?: PublishedPoint[];
   observed?: Map<string, number>;
   /** Bootstrap points for the same target dates, shown as overlay columns. */
   bootstrap?: ForecastPoint[];
   /** Cross-bank mean transfer-selling rate by date (a commercial, not a model, basis). */
   bankMeans?: { date: string; mean: number; bankCount: number }[];
-  /**
-   * Origin of the vintage the published snapshot was built on. When set, a
-   * stitched row from any other vintage shows no published rate: pairing a
-   * snapshot with a different vintage's median puts two forecasts side by side
-   * as if they were one.
-   */
-  publishedOrigin?: string;
-  /** The newest vintage, shown beside a snapshot that was built on an older one. */
-  latestVintage?: { origin: string; points: ForecastPoint[] };
   pageSize?: number;
 }) {
   const publishedByDate = new Map(
@@ -55,8 +50,6 @@ export function HorizonTable({
   );
   const bankByDate = new Map((bankMeans ?? []).map((row) => [row.date, row]));
   const showBank = bankByDate.size > 0;
-  const latestByDate = new Map((latestVintage?.points ?? []).map((point) => [point.target_date, point]));
-  const showLatest = latestByDate.size > 0 && Boolean(published?.length);
   const showOrigin = points.some((point) => point.origin);
   const showBootstrap = Boolean(bootstrap?.length);
 
@@ -86,24 +79,8 @@ export function HorizonTable({
       {showBank ? <TableHead className="text-right">Bank vs median</TableHead> : null}
       {showBootstrap ? <TableHead className="text-right">Bootstrap median</TableHead> : null}
       {published?.length ? (
-        <TableHead
-          title={
-            publishedOrigin
-              ? `Shadow snapshot built on the ${formatShortDate(publishedOrigin)} vintage`
-              : undefined
-          }
-        >
+        <TableHead title="The rate the publication policy selected for this date — highlighted when the LLM's proposed adjustment was the one selected">
           Published
-        </TableHead>
-      ) : null}
-      {showLatest ? (
-        <TableHead className="text-right" title="Median of the newest weekly vintage for the same date">
-          Latest median{latestVintage ? ` (${formatShortDate(latestVintage.origin)})` : ""}
-        </TableHead>
-      ) : null}
-      {showLatest ? (
-        <TableHead className="text-right" title="Published rate against the newest vintage's median">
-          Published vs latest
         </TableHead>
       ) : null}
     </TableRow>
@@ -115,15 +92,16 @@ export function HorizonTable({
     const spot = (point.origin ? observed?.get(point.origin) : undefined) ?? anchorRate;
     const drift = spot ? ((point.q50 - spot) / spot) * 100 : null;
     const actual = observed?.get(point.target_date);
-    // Only pair a snapshot with rows from the vintage it was built on.
-    const sameVintage = !publishedOrigin || !point.origin || point.origin === publishedOrigin;
-    const pub = sameVintage ? publishedByDate.get(point.target_date) : undefined;
-    const latest = latestByDate.get(point.target_date);
+    const pub = publishedByDate.get(point.target_date);
+    const adjusted = pub?.selection === "event_candidate";
     const boot = bootstrapByDate.get(point.target_date);
     const bank = bankByDate.get(point.target_date);
     const bankGap = bank ? ((bank.mean - point.q50) / point.q50) * 100 : null;
     return (
-      <TableRow key={`${point.origin ?? ""}-${point.target_date}`}>
+      <TableRow
+        key={`${point.origin ?? ""}-${point.target_date}`}
+        className={cn(adjusted && "bg-[var(--serious)]/10 hover:bg-[var(--serious)]/15")}
+      >
         <TableCell className="tnum font-mono text-xs text-muted-foreground">
           {point.horizon}
         </TableCell>
@@ -227,30 +205,30 @@ export function HorizonTable({
             {pub ? (
               <div className="flex items-center gap-2">
                 <SelectionBadge selection={pub.selection} />
-                <span className="tnum font-mono text-xs">{formatRate(pub.selected_rate)}</span>
+                <span
+                  className={cn(
+                    "tnum font-mono text-xs",
+                    adjusted && "font-semibold text-[var(--serious)]",
+                  )}
+                  title={
+                    adjusted && pub.adjustment_delta_pct !== null
+                      ? `LLM-adjusted: ${formatPercent(pub.adjustment_delta_pct, 2, true)} from base ${formatRate(pub.base_q50)}`
+                      : undefined
+                  }
+                >
+                  {formatRate(pub.selected_rate)}
+                </span>
               </div>
             ) : (
               <span className="text-xs text-muted-foreground">—</span>
             )}
           </TableCell>
         ) : null}
-        {showLatest ? (
-          <TableCell className="tnum text-right font-mono text-xs">
-            {latest ? formatRate(latest.q50) : <span className="text-muted-foreground">—</span>}
-          </TableCell>
-        ) : null}
-        {showLatest ? (
-          <TableCell className="tnum text-right font-mono text-xs">
-            {pub && latest ? (
-              formatPercent(((pub.selected_rate - latest.q50) / latest.q50) * 100, 2, true)
-            ) : (
-              <span className="text-muted-foreground">—</span>
-            )}
-          </TableCell>
-        ) : null}
       </TableRow>
     );
   });
+
+  const adjustedCount = (published ?? []).filter((point) => point.selection === "event_candidate").length;
 
   return (
     <div className="space-y-3">
@@ -267,6 +245,16 @@ export function HorizonTable({
           <MonoTag>walk-forward</MonoTag>
           Each row keeps whichever stored vintage most recently forecast that date, so a matured
           prediction stays visible instead of dropping out once a newer vintage supersedes it.
+        </p>
+      ) : null}
+      {adjustedCount ? (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span
+            aria-hidden
+            className="inline-block size-2.5 rounded-[2px] bg-[var(--serious)]/25"
+          />
+          {adjustedCount} date{adjustedCount === 1 ? "" : "s"} highlighted below had the LLM&apos;s
+          proposed adjustment selected instead of the base median.
         </p>
       ) : null}
       <PaginatedTable header={header} rows={rows} pageSize={pageSize} label="horizons" />

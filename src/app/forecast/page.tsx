@@ -79,7 +79,8 @@ export default async function ForecastPage({
     weeklyWalkForwardFan,
     weeklyWalkForwardPoints,
     weeklyOrigins,
-    publicationBase,
+    publishedWalkForward,
+    adjustments,
     dailyWalkForwardFan,
     dailyWalkForwardPoints,
     weeklyWidths,
@@ -96,9 +97,6 @@ export default async function ForecastPage({
   } = model;
 
   const observed = new Map(history.map((item) => [item.observed_on, item.rate]));
-  const snapshotIsOlder = Boolean(
-    publicationBase && weekly && publicationBase.vintage.forecast_id !== weekly.vintage.forecast_id,
-  );
   const chronos = weekly?.vintage.model_json;
   const recipe = daily?.vintage.model_json?.recipe;
   const maturedCount = weekly
@@ -200,11 +198,13 @@ export default async function ForecastPage({
             description="Every stored Monday vintage is stitched together by target date. Left of the origin line are the earlier weeks' frozen paths, each drawn for the days it covered, so you can see what the model said last week; the current vintage takes over from its own origin and runs 30 days ahead. Shading darkens toward the median."
             footnote={`Current vintage issued ${formatDateTime(weekly.vintage.issued_at)} from data as of ${formatDateTime(weekly.vintage.data_as_of)}. ${maturedCount} of its 30 target dates have already matured. ${weeklyOrigins.length > 1 ? `${weeklyOrigins.length - 1} earlier weekly vintage${weeklyOrigins.length === 2 ? "" : "s"} shown (dotted lines mark where each began); a step in the median at a dotted line is the model revising itself on Monday. ` : ""}Each date shows the most recent vintage that covered it, so a week's path is its days 1–7 and the current vintage's longer horizons only appear beyond them.`}
             height={420}
+            adjustments={adjustments}
           />
 
           <TrackChart
             rows={track}
             bankMeans={bankMeans}
+            adjustments={adjustments}
             todayDate={latest?.observed_on ?? null}
             footnote={`Built from the ${weeklyOptions.length} stored Chronos vintage${weeklyOptions.length === 1 ? "" : "s"} and ${dailyOptions.length} bootstrap vintage${dailyOptions.length === 1 ? "" : "s"} for this pair. Where several vintages covered the same target date, the most recent origin is shown — the view a consumer reading the latest pointer would have had.`}
           />
@@ -312,8 +312,7 @@ export default async function ForecastPage({
                       anchorRate={latest?.rate ?? null}
                       observed={observed}
                       bankMeans={bankMeans}
-                      published={publication?.points}
-                      publishedOrigin={publicationBase?.vintage.origin}
+                      published={publishedWalkForward}
                     />
                   </TabsContent>
 
@@ -351,35 +350,17 @@ export default async function ForecastPage({
                           The published snapshot restates the base q05/q50/q95 for every target
                           date and records the single rate the policy selected. The LLM never
                           shifts an interval; it can only move the selected point, and only when
-                          the absolute delta exceeds 1%.
+                          the absolute delta exceeds 1%. A new snapshot only covers 30 days from
+                          its own base vintage, so this table merges every snapshot stored for this
+                          pair: each date shows whichever one was published for it most recently.
                         </ReadingNote>
-                        {snapshotIsOlder && publicationBase ? (
-                          <HistoricalNotice>
-                            This snapshot was built on the{" "}
-                            <strong>{formatDate(publicationBase.vintage.origin)}</strong> Chronos
-                            vintage (created {formatDateTime(publication.created_at)}), not the
-                            current <strong>{formatDate(weekly.vintage.origin)}</strong> one, so the
-                            medians and published rates below are that older vintage&apos;s. The
-                            next assessment run publishes a snapshot from the current vintage; until
-                            then the newest vintage&apos;s medians sit on the right for comparison.
-                          </HistoricalNotice>
-                        ) : null}
                         <HorizonTable
-                          points={publicationBase?.points ?? weekly.points}
-                          anchorRate={
-                            observed.get((publicationBase ?? weekly).vintage.origin) ??
-                            latest?.rate ??
-                            null
-                          }
+                          points={weeklyWalkForwardPoints}
+                          anchorRate={latest?.rate ?? null}
                           observed={observed}
                           bankMeans={bankMeans}
-                          published={publication.points}
+                          published={publishedWalkForward}
                           bootstrap={dailyWalkForwardPoints}
-                          latestVintage={
-                            snapshotIsOlder
-                              ? { origin: weekly.vintage.origin, points: weekly.points }
-                              : undefined
-                          }
                         />
                       </>
                     ) : null}

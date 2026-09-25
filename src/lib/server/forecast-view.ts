@@ -8,12 +8,14 @@ import {
   getLatestAssessmentPerPair,
   getObservations,
   getPairVintages,
+  getPublicationHistory,
   getRealizedPoints,
   type RealizedPoint as RealizedPointRow,
 } from "@/lib/server/queries";
 import {
   alignByTargetDate,
   buildFanRows,
+  buildPublishedWalkForward,
   buildTrackRows,
   buildWidthRows,
   walkForwardWindow,
@@ -31,6 +33,7 @@ import type {
   ForecastPoint,
   Observation,
   Pair,
+  PublishedPoint,
   PublishedSnapshot,
 } from "@/lib/types";
 
@@ -75,11 +78,14 @@ export type ForecastModel = {
   weeklyWalkForwardFan: FanRow[];
   weeklyWalkForwardPoints: (ForecastPoint & { origin: string })[];
   /**
-   * The weekly vintage the current publication snapshot was actually built on.
-   * A snapshot is made from one vintage, so once a newer Monday vintage arrives
-   * it describes the old one until the next assessment run publishes again.
+   * Every stored publication snapshot for this pair merged by target date, so a
+   * date keeps the most recently published row for it even though each snapshot
+   * only covers 30 days from its own base vintage's origin. This is what the
+   * "Published" column in the path tables reads from.
    */
-  publicationBase: ForecastPath | null;
+  publishedWalkForward: PublishedPoint[];
+  /** Dates where the LLM's proposed delta was actually selected, for the chart overlay. */
+  adjustments: { date: string; rate: number; base: number; deltaPct: number }[];
   /** Origins of the weekly vintages contributing to the walk-forward, oldest first. */
   weeklyOrigins: string[];
   weeklyWidths: WidthRow[];
@@ -119,11 +125,12 @@ export const getForecastModel = cache(
   ): Promise<ForecastModel> => {
     const historyDays = options.historyDays ?? 120;
 
-    const [paths, observations, publications, assessments, realized, comparisons] =
+    const [paths, observations, publications, publicationHistory, assessments, realized, comparisons] =
       await Promise.all([
         getPairVintages(pair, 45),
         getObservations(pair, Math.max(historyDays, 180)),
         getAllLatestPublications(),
+        getPublicationHistory(pair, 90),
         getLatestAssessmentPerPair(),
         getRealizedPoints(4000),
         // Bank quotes are a newer table; a read failure there must not take the
@@ -162,6 +169,24 @@ export const getForecastModel = cache(
     );
     const weeklyOrigins = Array.from(new Set(weeklyWalkForwardPoints.map((point) => point.origin)))
       .sort();
+
+    // Each midday run creates a new snapshot covering only 30 days from its own
+    // base vintage; merge every stored one so a date keeps whatever was most
+    // recently published for it, the same rule the forecast walk-forward uses.
+    const publishedWalkForward = buildPublishedWalkForward(
+      publicationHistory.map((snapshot) => ({
+        createdAt: snapshot.created_at,
+        points: snapshot.points,
+      })),
+    );
+    const adjustments = publishedWalkForward
+      .filter((point) => point.selection === "event_candidate")
+      .map((point) => ({
+        date: point.target_date,
+        rate: point.selected_rate,
+        base: point.base_q50,
+        deltaPct: point.adjustment_delta_pct ?? ((point.selected_rate - point.base_q50) / point.base_q50) * 100,
+      }));
 
     const window = observations.slice(-historyDays);
     const latest = observations[observations.length - 1] ?? null;
@@ -204,12 +229,8 @@ export const getForecastModel = cache(
       ),
       weeklyWalkForwardPoints,
       weeklyOrigins,
-      publicationBase:
-        weeklyPaths.find(
-          (path) =>
-            path.vintage.forecast_id ===
-            publications.find((item) => item.pair === pair)?.weekly_forecast_id,
-        ) ?? null,
+      publishedWalkForward,
+      adjustments,
       weeklyWidths: buildWidthRows(weekly?.points ?? []),
       dailyWidths: buildWidthRows(daily?.points ?? []),
       divergence: alignByTargetDate(weekly?.points ?? [], daily?.points ?? []),

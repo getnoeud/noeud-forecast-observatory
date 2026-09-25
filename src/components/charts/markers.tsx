@@ -39,6 +39,30 @@ export function hollowMarker(shape: MarkerShape, color: string, r = 5, strokeWid
   return Marker;
 }
 
+/**
+ * A Recharts `dot` renderer: a filled shape with a surface-coloured ring, so an
+ * event marker (an LLM-selected rate, say) reads as a distinct point sitting on
+ * top of a line rather than another point along it.
+ */
+export function filledMarker(shape: MarkerShape, color: string, r = 5.5, ringWidth = 1.5) {
+  function Marker(props: { cx?: number; cy?: number; value?: unknown; index?: number }) {
+    const { cx, cy, value, index } = props;
+    if (cx === undefined || cy === undefined || value === null || value === undefined) {
+      return <g key={`empty-${index}`} />;
+    }
+    return (
+      <path
+        key={`m-${index}`}
+        d={shapePath(shape, cx, cy, r)}
+        fill={color}
+        stroke="var(--card)"
+        strokeWidth={ringWidth}
+      />
+    );
+  }
+  return Marker;
+}
+
 /** The same shape as a static legend swatch. */
 export function MarkerSwatch({ shape, color }: { shape: MarkerShape; color: string }) {
   return (

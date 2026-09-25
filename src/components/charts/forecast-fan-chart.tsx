@@ -16,10 +16,12 @@ import {
   AXIS_TICK,
   ChartFrame,
   GRID_PROPS,
+  ToggleChip,
   TooltipRow,
   TooltipShell,
   type LegendEntry,
 } from "@/components/charts/frame";
+import { filledMarker } from "@/components/charts/markers";
 import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { FAN_BANDS, niceDomain, type FanRow } from "@/lib/analytics";
 import { formatDate, formatPercent, formatRate, formatShortDate } from "@/lib/format";
@@ -34,6 +36,8 @@ const SHADE_FILL: Record<number, string> = {
 };
 
 const SHADE_OPACITY: Record<number, number> = { 1: 0.4, 2: 0.55, 3: 0.7, 4: 0.85 };
+
+const ADJUSTMENT_COLOR = "var(--serious)";
 
 const COVERAGE = {
   "50": { bands: ["b4", "b5"], lower: "q25", upper: "q75", label: "50%" },
@@ -53,15 +57,18 @@ function FanTooltip({
   payload,
   anchorRate,
   accent,
+  adjustmentByDate,
 }: {
   active?: boolean;
-  payload?: { payload: FanRow }[];
+  payload?: { payload: FanRow & { __adjustedRate?: number | null } }[];
   anchorRate?: number | null;
   accent: string;
+  adjustmentByDate?: Map<string, { rate: number; base: number; deltaPct: number }>;
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
   const hasFan = row.median !== null && row.horizon !== null;
+  const adjustment = adjustmentByDate?.get(row.date);
 
   return (
     <TooltipShell
@@ -103,6 +110,14 @@ function FanTooltip({
             <TooltipRow label="Realised − median" value={formatRate(row.realisedError)} emphasis />
           ) : null}
         </>
+      ) : null}
+      {adjustment ? (
+        <TooltipRow
+          label="LLM selected"
+          value={`${formatRate(adjustment.rate)} (${formatPercent(adjustment.deltaPct, 2, true)})`}
+          color={ADJUSTMENT_COLOR}
+          emphasis
+        />
       ) : null}
     </TooltipShell>
   );
@@ -153,6 +168,7 @@ export function ForecastFanChart({
   accent = "var(--chart-8)",
   height = 380,
   defaultCoverage = "90",
+  adjustments = [],
 }: {
   rows: FanRow[];
   anchorDate?: string | null;
@@ -167,6 +183,8 @@ export function ForecastFanChart({
   accent?: string;
   height?: number;
   defaultCoverage?: CoverageKey;
+  /** Dates where the publication policy selected the LLM's proposed rate over the base median. */
+  adjustments?: { date: string; rate: number; base: number; deltaPct: number }[];
 }) {
   const [coverage, setCoverage] = React.useState<CoverageKey>(defaultCoverage);
   const active = COVERAGE[coverage];
@@ -188,6 +206,20 @@ export function ForecastFanChart({
   const dates = React.useMemo(() => rows.map((row) => row.date), [rows]);
   const showWeekends = hasWeekendBands(dates);
 
+  const adjustmentByDate = React.useMemo(
+    () => new Map(adjustments.map((item) => [item.date, item])),
+    [adjustments],
+  );
+  const [showAdjustments, setShowAdjustments] = React.useState(true);
+  const data = React.useMemo(
+    () =>
+      rows.map((row) => ({
+        ...row,
+        __adjustedRate: showAdjustments ? (adjustmentByDate.get(row.date)?.rate ?? null) : null,
+      })),
+    [rows, adjustmentByDate, showAdjustments],
+  );
+
   const legend: LegendEntry[] = [
     { label: "Observed rate", color: "var(--foreground)", shape: "line" },
     { label: "Forecast median", color: accent, shape: "dash" },
@@ -199,6 +231,9 @@ export function ForecastFanChart({
       ? ([{ label: "98% band", color: "var(--seq-100)", shape: "area" }] as LegendEntry[])
       : []),
     ...(showWeekends ? [WEEKEND_LEGEND] : []),
+    ...(adjustments.length && showAdjustments
+      ? ([{ label: "LLM-selected rate", color: ADJUSTMENT_COLOR, marker: "diamond" }] as LegendEntry[])
+      : []),
   ];
 
   return (
@@ -209,13 +244,22 @@ export function ForecastFanChart({
       toolbar={
         <>
           {toolbar}
+          {adjustments.length ? (
+            <ToggleChip
+              active={showAdjustments}
+              onClick={() => setShowAdjustments((value) => !value)}
+              color={ADJUSTMENT_COLOR}
+            >
+              LLM adjustment
+            </ToggleChip>
+          ) : null}
           <CoverageToggle value={coverage} onChange={setCoverage} />
         </>
       }
       footnote={footnote}
       height={height}
     >
-      <ComposedChart data={rows} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
+      <ComposedChart data={data} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
         <CartesianGrid {...GRID_PROPS} />
         <XAxis
           dataKey="date"
@@ -237,7 +281,9 @@ export function ForecastFanChart({
         />
         <Tooltip
           cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1, strokeDasharray: "3 3" }}
-          content={<FanTooltip anchorRate={anchorRate} accent={accent} />}
+          content={
+            <FanTooltip anchorRate={anchorRate} accent={accent} adjustmentByDate={adjustmentByDate} />
+          }
         />
 
         {weekendBands(dates)}
@@ -298,6 +344,15 @@ export function ForecastFanChart({
           isAnimationActive={false}
           connectNulls
         />
+        {showAdjustments ? (
+          <Line
+            dataKey="__adjustedRate"
+            stroke="none"
+            dot={filledMarker("diamond", ADJUSTMENT_COLOR)}
+            isAnimationActive={false}
+            connectNulls={false}
+          />
+        ) : null}
       </ComposedChart>
     </ChartFrame>
   );

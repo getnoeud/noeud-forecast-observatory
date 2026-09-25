@@ -16,10 +16,12 @@ import {
   AXIS_TICK,
   ChartFrame,
   GRID_PROPS,
+  ToggleChip,
   TooltipRow,
   TooltipShell,
   type LegendEntry,
 } from "@/components/charts/frame";
+import { filledMarker } from "@/components/charts/markers";
 import { hasWeekendBands, WEEKEND_LEGEND, weekendBands } from "@/components/charts/weekend";
 import { niceDomain, type TrackRow } from "@/lib/analytics";
 import { formatDate, formatPercent, formatRate, formatShortDate } from "@/lib/format";
@@ -30,6 +32,7 @@ const BOOTSTRAP = "var(--chart-2)";
 // Slots 1–3 clear the all-pairs separation floors together, so the bank series
 // takes slot 3 here where Chronos already holds slot 1.
 const BANK = "var(--chart-3)";
+const ADJUSTMENT_COLOR = "var(--serious)";
 
 type BandMode = "none" | "chronos" | "both";
 
@@ -86,10 +89,13 @@ export function TrackChart({
   footnote,
   height = 400,
   bankMeans = [],
+  adjustments = [],
 }: {
   rows: TrackRow[];
   /** Cross-bank mean transfer-selling rate by date — a commercial price, not a model input. */
   bankMeans?: { date: string; mean: number; min: number; max: number; bankCount: number }[];
+  /** Dates where the publication policy selected the LLM's proposed rate over the base median. */
+  adjustments?: { date: string; rate: number; base: number; deltaPct: number }[];
   todayDate?: string | null;
   title?: string;
   description?: React.ReactNode;
@@ -100,20 +106,25 @@ export function TrackChart({
   const hasBank = bankMeans.length > 0;
   const [showBank, setShowBank] = React.useState(true);
   const bankVisible = hasBank && showBank;
+  const hasAdjustments = adjustments.length > 0;
+  const [showAdjustments, setShowAdjustments] = React.useState(true);
+  const adjustmentsVisible = hasAdjustments && showAdjustments;
 
   const data = React.useMemo(() => {
-    if (!hasBank) return rows;
     const byDate = new Map(bankMeans.map((row) => [row.date, row]));
+    const adjByDate = new Map(adjustments.map((row) => [row.date, row]));
     return rows.map((row) => {
       const bank = byDate.get(row.date);
+      const adjustment = adjByDate.get(row.date);
       return {
         ...row,
         bankMean: bank?.mean ?? null,
         bankRange: bank ? ([bank.min, bank.max] as [number, number]) : null,
         bankCount: bank?.bankCount ?? null,
+        adjustedRate: adjustment?.rate ?? null,
       };
     });
-  }, [rows, bankMeans, hasBank]);
+  }, [rows, bankMeans, adjustments]);
 
   const axis = React.useMemo(() => {
     const values: number[] = [];
@@ -127,8 +138,11 @@ export function TrackChart({
       if (bands !== "none" && row.chronosBand) values.push(...row.chronosBand);
       if (bands === "both" && row.bootstrapBand) values.push(...row.bootstrapBand);
     }
+    if (adjustmentsVisible) {
+      for (const item of adjustments) values.push(item.rate);
+    }
     return niceDomain(values, 6);
-  }, [rows, bands, bankVisible, bankMeans]);
+  }, [rows, bands, bankVisible, bankMeans, adjustmentsVisible, adjustments]);
 
   const dates = React.useMemo(() => rows.map((row) => row.date), [rows]);
 
@@ -145,6 +159,9 @@ export function TrackChart({
     ...(bankVisible
       ? ([{ label: "Bank mean (transfer selling)", color: BANK, shape: "dot" }] as LegendEntry[])
       : []),
+    ...(adjustmentsVisible
+      ? ([{ label: "LLM-selected rate", color: ADJUSTMENT_COLOR, marker: "diamond" }] as LegendEntry[])
+      : []),
     ...(hasWeekendBands(dates) ? [WEEKEND_LEGEND] : []),
   ];
 
@@ -156,24 +173,18 @@ export function TrackChart({
       toolbar={
         <>
           {hasBank ? (
-            <button
-              type="button"
-              aria-pressed={showBank}
-              onClick={() => setShowBank((value) => !value)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[0.7rem] font-medium transition-colors",
-                showBank
-                  ? "border-transparent bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <span
-                aria-hidden
-                className="inline-block size-2 rounded-full"
-                style={{ background: BANK, opacity: showBank ? 1 : 0.35 }}
-              />
+            <ToggleChip active={showBank} onClick={() => setShowBank((value) => !value)} color={BANK}>
               Bank mean
-            </button>
+            </ToggleChip>
+          ) : null}
+          {hasAdjustments ? (
+            <ToggleChip
+              active={showAdjustments}
+              onClick={() => setShowAdjustments((value) => !value)}
+              color={ADJUSTMENT_COLOR}
+            >
+              LLM adjustment
+            </ToggleChip>
           ) : null}
           <BandToggle value={bands} onChange={setBands} />
         </>
@@ -245,6 +256,14 @@ export function TrackChart({
                   <TooltipRow
                     label="Bootstrap miss"
                     value={formatPercent(bootstrapMiss, 2, true)}
+                  />
+                ) : null}
+                {adjustmentsVisible && (row as TrackRow & { adjustedRate?: number | null }).adjustedRate != null ? (
+                  <TooltipRow
+                    label="LLM selected"
+                    value={formatRate((row as TrackRow & { adjustedRate: number }).adjustedRate)}
+                    color={ADJUSTMENT_COLOR}
+                    emphasis
                   />
                 ) : null}
                 {bankVisible && (row as TrackRow & { bankMean?: number | null }).bankMean != null ? (
@@ -358,6 +377,15 @@ export function TrackChart({
             activeDot={{ r: 5, strokeWidth: 0, fill: BANK }}
             connectNulls
             isAnimationActive={false}
+          />
+        ) : null}
+        {adjustmentsVisible ? (
+          <Line
+            dataKey="adjustedRate"
+            stroke="none"
+            dot={filledMarker("diamond", ADJUSTMENT_COLOR)}
+            isAnimationActive={false}
+            connectNulls={false}
           />
         ) : null}
       </ComposedChart>

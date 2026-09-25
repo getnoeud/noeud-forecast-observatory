@@ -5,6 +5,7 @@ import type {
   Pair,
   RealizedPointLike,
 } from "@/lib/analytics-types";
+import type { PublishedPoint } from "@/lib/types";
 
 export type { RealizedPointLike };
 
@@ -563,4 +564,27 @@ export function walkForwardWindow(
   const eligible = asOf ? paths.filter((path) => path.origin <= asOf) : paths;
   const merged = buildWalkForwardPoints(eligible);
   return since ? merged.filter((point) => point.target_date >= since) : merged;
+}
+
+/**
+ * Every stored publication snapshot for one pair, merged by target date.
+ *
+ * A new shadow snapshot is created on every weekday midday run and only covers
+ * the 30 days forward from its own base vintage's origin, so a single snapshot
+ * (even the current one) does not span the whole history the way the walk-
+ * forward forecast series does. This merges every snapshot oldest-to-newest so
+ * each date keeps the most recently published row for it — the same rule
+ * `buildWalkForwardPoints` uses for forecast vintages.
+ */
+export function buildPublishedWalkForward(
+  snapshots: { createdAt: string; points: PublishedPoint[] }[],
+): PublishedPoint[] {
+  const byDate = new Map<string, PublishedPoint>();
+  const ordered = [...snapshots].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  for (const snapshot of ordered) {
+    for (const point of snapshot.points) {
+      byDate.set(point.target_date, point);
+    }
+  }
+  return Array.from(byDate.values()).sort((a, b) => a.target_date.localeCompare(b.target_date));
 }

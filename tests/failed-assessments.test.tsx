@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AssessmentBadge } from "@/components/obs/badges";
 import { PairCard } from "@/components/obs/pair-card";
@@ -8,6 +8,7 @@ import type { PairOverview } from "@/lib/server/views";
 import { assessmentRow } from "./fixtures";
 
 vi.mock("@/components/charts/overview-charts", () => ({ MiniFan: () => null }));
+afterEach(() => vi.restoreAllMocks());
 
 describe("failed assessment records", () => {
   it("renders the real null-body failure shape without losing the currency card", () => {
@@ -46,6 +47,7 @@ describe("failed assessment records", () => {
   });
 
   it("distinguishes failure from an expired successful view", () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-04T12:00:00Z"));
     expect(renderToStaticMarkup(<AssessmentBadge assessment={assessmentRow(true)} showExpiry />))
       .toContain("Assessment failed");
     expect(renderToStaticMarkup(<AssessmentBadge assessment={assessmentRow()} showExpiry />))

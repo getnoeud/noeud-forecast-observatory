@@ -12,7 +12,7 @@ import {
   UncertaintyGrowthChart,
 } from "@/components/charts/uncertainty-charts";
 import {
-  DecisionBadge,
+  AssessmentBadge,
   ModeBadge,
   MonoTag,
   PairBadge,
@@ -41,7 +41,6 @@ import {
   formatRate,
   shortHash,
 } from "@/lib/format";
-import { isExpired } from "@/lib/intelligence";
 import { getForecastModel } from "@/lib/server/forecast-view";
 import { isPair, PAIR_BASE_LABELS, PAIR_LABELS, type Pair } from "@/lib/types";
 
@@ -335,16 +334,7 @@ export default async function ForecastPage({
                           <ModeBadge mode={publication.mode} />
                           <MonoTag>{publication.policy_version}</MonoTag>
                           <MonoTag>snapshot {shortHash(publication.snapshot_id, 12)}</MonoTag>
-                          {assessment && !isExpired(assessment) ? (
-                            <DecisionBadge
-                              decision={assessment.record.assessment.decision}
-                            />
-                          ) : assessment ? (
-                            <StatusPill
-                              tone="neutral"
-                              label={`Assessment expired ${formatDateTime(assessment.expires_at)}`}
-                            />
-                          ) : null}
+                          <AssessmentBadge assessment={assessment} showExpiry />
                         </div>
                         <ReadingNote>
                           The published snapshot restates the base q05/q50/q95 for every target

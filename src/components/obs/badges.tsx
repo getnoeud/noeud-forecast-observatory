@@ -12,7 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { sentenceCase, titleCase } from "@/lib/format";
-import type { Pair } from "@/lib/types";
+import { assessmentBody, isExpired } from "@/lib/intelligence";
+import type { EventAssessmentRow, Pair } from "@/lib/types";
 
 export const PAIR_COLOR_VAR: Record<Pair, string> = {
   USDGHS: "var(--pair-usdghs)",
@@ -95,6 +96,24 @@ export function DecisionBadge({ decision }: { decision: string }) {
     icon: <CircleDashedIcon className="size-3" />,
   };
   return <StatusPill tone={meta.tone} label={meta.label} icon={meta.icon} />;
+}
+
+export function AssessmentBadge({
+  assessment,
+  showExpiry = false,
+}: {
+  assessment: EventAssessmentRow | null | undefined;
+  showExpiry?: boolean;
+}) {
+  if (!assessment) return <StatusPill tone="neutral" label="No assessment" />;
+  const body = assessmentBody(assessment);
+  if (!body) {
+    return <StatusPill tone="critical" label="Assessment failed" icon={<XCircleIcon className="size-3" />} />;
+  }
+  if (showExpiry && isExpired(assessment)) {
+    return <StatusPill tone="neutral" label="Expired" />;
+  }
+  return <DecisionBadge decision={body.decision} />;
 }
 
 const RUN_STATE_META: Record<

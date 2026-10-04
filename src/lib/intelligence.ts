@@ -5,6 +5,22 @@ import type {
   GatewayCall,
 } from "@/lib/types";
 
+/** A failed record has no validated decision, even if a partial body was saved. */
+export function assessmentBody(row: EventAssessmentRow | null | undefined) {
+  return row?.status === "assessed" && row.record.status === "assessed"
+    ? row.record.assessment
+    : null;
+}
+
+export function validationMessage(error: EventAssessmentRecord["validation_errors"][number]): string {
+  return typeof error === "string" ? error : error.message || error.code;
+}
+
+export function assessmentFailureReason(row: EventAssessmentRow): string {
+  return row.record.validation_errors.map(validationMessage).filter(Boolean).join("; ") ||
+    row.record.error_code || "No validated assessment was produced.";
+}
+
 export function callOf(record: EventAssessmentRecord, stage: string): GatewayCall | undefined {
   return record.calls.find((call) => call.stage === stage);
 }
@@ -66,12 +82,13 @@ export const DECISION_COLORS: Record<string, string> = {
   hold: "var(--good)",
   monitor: "var(--warning)",
   review_adjustment: "var(--serious)",
+  failed: "var(--critical)",
 };
 
 export function decisionMix(rows: EventAssessmentRow[]) {
   const counts = new Map<string, number>();
   for (const row of rows) {
-    const decision = row.record.assessment.decision;
+    const decision = assessmentBody(row)?.decision ?? "failed";
     counts.set(decision, (counts.get(decision) ?? 0) + 1);
   }
   return Array.from(counts.entries())

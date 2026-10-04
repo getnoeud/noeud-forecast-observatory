@@ -8,6 +8,7 @@ import {
   StageCostChart,
 } from "@/components/charts/llm-charts";
 import {
+  AssessmentBadge,
   DecisionBadge,
   MonoTag,
   PairBadge,
@@ -33,8 +34,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
+  assessmentBody,
+  assessmentFailureReason,
   assessmentAgeHours,
-  callOf,
   costRows,
   countBy,
   decisionMix,
@@ -45,6 +47,7 @@ import {
   tokenRows,
   totalCost,
   totalLatency,
+  validationMessage,
 } from "@/lib/intelligence";
 import {
   formatDate,
@@ -169,15 +172,13 @@ export default async function IntelligencePage({
   }
 
   const record = selected?.record;
-  const assessment = record?.assessment;
+  const assessment = assessmentBody(selected);
   const evidence = record?.evidence ?? [];
-  const retrieval = record ? callOf(record, "retrieval") : undefined;
-  const analysis = record ? callOf(record, "analysis") : undefined;
   const config = (record?.config ?? {}) as Record<string, unknown>;
 
   const cycleCost = totalCost(ordered);
   const proposals = ordered.filter(
-    (row) => row.record.assessment.decision === "review_adjustment",
+    (row) => assessmentBody(row)?.decision === "review_adjustment",
   ).length;
   const totalEvidence = ordered.reduce((sum, row) => sum + row.record.evidence.length, 0);
   const totalRejected = ordered.reduce(
@@ -290,21 +291,21 @@ export default async function IntelligencePage({
         />
         <div className="grid gap-4 lg:grid-cols-3">
           {ordered.map((row) => {
-            const body = row.record.assessment;
+            const body = assessmentBody(row);
             return (
               <Card key={row.assessment_id} className="gap-0 py-0">
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <PairBadge pair={row.pair} />
-                    <DecisionBadge decision={body.decision} />
+                    <AssessmentBadge assessment={row} />
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <Stat label="Evidence" value={row.record.evidence.length} />
-                    <Stat label="Strength" value={sentenceCase(body.evidence_strength)} mono={false} />
-                    <Stat label="Persistence" value={sentenceCase(body.persistence)} mono={false} />
+                    <Stat label="Strength" value={body ? sentenceCase(body.evidence_strength) : "—"} mono={false} />
+                    <Stat label="Persistence" value={body ? sentenceCase(body.persistence) : "—"} mono={false} />
                   </div>
                   <p className="line-clamp-4 text-xs leading-relaxed text-muted-foreground">
-                    {body.rationale}
+                    {body?.rationale ?? assessmentFailureReason(row)}
                   </p>
                   <div className="flex flex-wrap items-center gap-2 border-t pt-3">
                     <MonoTag>{row.record.publication_action}</MonoTag>
@@ -340,6 +341,39 @@ export default async function IntelligencePage({
         />
         <DecisionMixChart rows={decisionMix(history)} />
       </section>
+
+      {record && !assessment && selected ? (
+        <section className="space-y-3">
+          <SectionHeading
+            title={`${pair} — assessment failed`}
+            description="This attempt did not produce a validated decision. Its evidence and diagnostics remain available for review."
+          />
+          <Card>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <AssessmentBadge assessment={selected} />
+                <MonoTag>attempted {formatDateTime(selected.as_of)}</MonoTag>
+                <MonoTag>{shortHash(selected.assessment_id, 12)}</MonoTag>
+              </div>
+              <p className="text-sm text-muted-foreground">{assessmentFailureReason(selected)}</p>
+              <ReadingNote>
+                No new LLM adjustment was selected from this attempt. Existing forecast
+                vintages and publication snapshots remain available with their original timestamps.
+              </ReadingNote>
+              {record.validation_errors.length ? (
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {record.validation_errors.map((error, index) => (
+                    <li key={index}>{validationMessage(error)}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {evidence.length ? <EvidenceTable evidence={evidence} /> : null}
+              <JsonViewer label="Failed assessment record" value={record} />
+            </CardContent>
+          </Card>
+          <BankContextCard record={record} />
+        </section>
+      ) : null}
 
       {record && assessment && selected ? (
         <>
@@ -568,7 +602,7 @@ export default async function IntelligencePage({
                     <ul className="space-y-1">
                       {record.validation_errors.map((error, index) => (
                         <li key={index} className="font-mono text-[0.68rem] text-muted-foreground">
-                          {error}
+                          {validationMessage(error)}
                         </li>
                       ))}
                     </ul>
@@ -790,7 +824,7 @@ export default async function IntelligencePage({
         </>
       ) : null}
 
-      {retrieval || analysis ? (
+      {history.length ? (
         <section className="space-y-3">
           <SectionHeading
             title="Assessment ledger"
@@ -820,7 +854,7 @@ export default async function IntelligencePage({
                         <PairBadge pair={row.pair} />
                       </TableCell>
                       <TableCell>
-                        <DecisionBadge decision={row.record.assessment.decision} />
+                        <AssessmentBadge assessment={row} />
                       </TableCell>
                       <TableCell>
                         <MonoTag>{row.record.publication_action}</MonoTag>

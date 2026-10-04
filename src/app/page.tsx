@@ -36,7 +36,7 @@ import {
   formatRelative,
   shortHash,
 } from "@/lib/format";
-import { isExpired } from "@/lib/intelligence";
+import { assessmentBody, isExpired } from "@/lib/intelligence";
 import { formatRunTime, nextMiddayRun, requestNow } from "@/lib/schedule";
 import { getOverview } from "@/lib/server/views";
 import { PAIRS } from "@/lib/types";
@@ -89,8 +89,8 @@ export default async function OverviewPage() {
   // holds Friday's), so "today's decisions" only counts ones that have not lapsed.
   const now = requestNow();
   const assessments = pairs.map((entry) => entry.assessment).filter((item) => item !== null);
-  const current = assessments.filter((item) => !isExpired(item, now));
-  const currentDecisions = current.map((item) => item.record.assessment.decision);
+  const current = assessments.filter((item) => assessmentBody(item) && !isExpired(item, now));
+  const currentDecisions = current.map((item) => assessmentBody(item)?.decision);
   const lastAssessedAt = assessments.reduce<string | null>(
     (latest, item) => (latest === null || item.as_of > latest ? item.as_of : latest),
     null,

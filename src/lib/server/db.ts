@@ -42,7 +42,7 @@ function createPool(): Pool {
   const url = new URL(connectionString);
   url.searchParams.delete("sslmode");
 
-  return new Pool({
+  const created = new Pool({
     connectionString: url.toString(),
     max: Number(process.env.OBSERVATORY_DB_POOL_MAX ?? 4),
     idleTimeoutMillis: 30_000,
@@ -53,6 +53,15 @@ function createPool(): Pool {
     // The session pooler is incompatible with server-side prepared statements.
     statement_timeout: 25_000,
   });
+  // Idle clients can disconnect outside a query's try/catch. pg removes the
+  // failed client itself; handling this event keeps the server alive so later
+  // reads can reconnect. Log only the code, never a connection URL or password.
+  created.on("error", (error: Error & { code?: string }) => {
+    console.error("[observatory] Idle database connection failed", {
+      code: error.code ?? "UNKNOWN",
+    });
+  });
+  return created;
 }
 
 export function pool(): Pool {

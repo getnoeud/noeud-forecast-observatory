@@ -204,6 +204,11 @@ ingestion by request kind, and a live row count for every table in the schema.
 - **Failed reads are shown as failed reads.** There is no fixture fallback: a
   dashboard that silently mixes live and mock rows is worse than one that is
   visibly down.
+- **Failed LLM assessments stay visible.** An attempt rejected by validation can
+  have no assessment body. Its card and history row show *Assessment failed*,
+  the Intelligence page explains the validation reason, and the other rates and
+  forecasts still render. A failed attempt is never counted as a current decision.
+  Background PostgreSQL disconnects are handled so subsequent reads can reconnect.
 
 ## Data access
 
@@ -265,6 +270,7 @@ Open `http://localhost:3000`. You will be asked for the shared observatory key
 npm run build
 npm run start
 npm run lint
+npm test
 ```
 
 ## Auth

@@ -245,7 +245,7 @@ export type EventAssessmentRecord = {
     commercial_market?: CommercialMarketContext | null;
   };
   evidence: EvidenceItem[];
-  assessment: EventAssessmentBody;
+  assessment: EventAssessmentBody | null;
   created_at: string;
   error_code: string | null;
   expires_at: string;
@@ -255,7 +255,7 @@ export type EventAssessmentRecord = {
   prompt_version: string;
   prompt_snapshot: Record<string, string>;
   rejected_evidence: string[];
-  validation_errors: string[];
+  validation_errors: (string | { code: string; message: string; location: string })[];
   adjustment_preview: AdjustmentProposal[];
   publication_action: string;
   provider_final_text: string | null;

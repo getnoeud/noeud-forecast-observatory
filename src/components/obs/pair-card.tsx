@@ -2,16 +2,16 @@ import Link from "next/link";
 import { ArrowUpRightIcon } from "lucide-react";
 
 import { MiniFan } from "@/components/charts/overview-charts";
-import { DecisionBadge, PairDot, StatusPill } from "@/components/obs/badges";
+import { AssessmentBadge, PairDot } from "@/components/obs/badges";
 import { Card, CardContent } from "@/components/ui/card";
-import { isExpired } from "@/lib/intelligence";
+import { assessmentBody, assessmentFailureReason, isExpired } from "@/lib/intelligence";
 import { formatDate, formatDateTime, formatPercent, formatRate, titleCase } from "@/lib/format";
 import type { PairOverview } from "@/lib/server/views";
 import { PAIR_BASE_LABELS, PAIR_LABELS } from "@/lib/types";
 
 export function PairCard({ overview }: { overview: PairOverview }) {
   const { pair, latest, dayChangePct, weeklySummary, assessment } = overview;
-  const decision = assessment?.record.assessment.decision;
+  const decision = assessmentBody(assessment)?.decision;
   // Assessments are valid midday to midday and only made on weekdays, so the
   // newest row can be days old. An expired view is history, not a live signal.
   const expired = assessment ? isExpired(assessment) : false;
@@ -108,14 +108,13 @@ export function PairCard({ overview }: { overview: PairOverview }) {
           <span className="text-xs text-muted-foreground">
             {PAIR_BASE_LABELS[pair]} event view
           </span>
-          {decision && !expired ? (
-            <DecisionBadge decision={decision} />
-          ) : decision ? (
-            <StatusPill tone="neutral" label="Expired" />
-          ) : (
-            <span className="text-xs text-muted-foreground">No assessment</span>
-          )}
+          <AssessmentBadge assessment={assessment} showExpiry />
         </div>
+        {assessment && !decision ? (
+          <p className="-mt-2 border-t border-dashed px-4 py-2 text-[0.7rem] leading-relaxed text-muted-foreground">
+            {assessmentFailureReason(assessment)} No new LLM adjustment was selected from this attempt.
+          </p>
+        ) : null}
         {decision && expired ? (
           <p className="-mt-2 border-t border-dashed px-4 py-2 text-[0.7rem] leading-relaxed text-muted-foreground">
             No current view. Last assessed {formatDateTime(assessment?.as_of)}:{" "}

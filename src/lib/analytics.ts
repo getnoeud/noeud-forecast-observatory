@@ -460,6 +460,7 @@ export type TrackRow = {
 type KindedPath = {
   kind: ForecastKind;
   origin: string;
+  revision: number;
   points: ForecastPoint[];
 };
 
@@ -467,8 +468,8 @@ type KindedPath = {
  * One row per calendar date carrying the observed rate beside what each model
  * family was saying about that date.
  *
- * Where several vintages cover the same target date, the most recent origin
- * wins — that is the view a consumer reading the latest pointer would have had.
+ * Use the same origin/revision selection as the weekly and bootstrap fan charts.
+ * Medians and bounds must come from one selected vintage, never separate merges.
  */
 export function buildTrackRows(
   history: { observed_on: string; rate: number }[],
@@ -499,21 +500,20 @@ export function buildTrackRows(
     ensure(observation.observed_on).actual = observation.rate;
   }
 
-  // Oldest origin first, so a newer vintage overwrites an older one's view.
-  const ordered = [...paths].sort((a, b) => a.origin.localeCompare(b.origin));
-  for (const path of ordered) {
-    const weekly = path.kind === "weekly_chronos";
-    for (const point of path.points) {
+  for (const kind of ["weekly_chronos", "daily_bootstrap"] as const) {
+    const weekly = kind === "weekly_chronos";
+    const selected = buildWalkForwardPoints(paths.filter((path) => path.kind === kind));
+    for (const point of selected) {
       const row = ensure(point.target_date);
       if (weekly) {
         row.chronos = point.q50;
         row.chronosBand = [point.q05, point.q95];
-        row.chronosOrigin = path.origin;
+        row.chronosOrigin = point.origin;
         row.chronosHorizon = point.horizon;
       } else {
         row.bootstrap = point.q50;
         row.bootstrapBand = [point.q05, point.q95];
-        row.bootstrapOrigin = path.origin;
+        row.bootstrapOrigin = point.origin;
         row.bootstrapHorizon = point.horizon;
       }
     }
@@ -557,8 +557,8 @@ export function buildWalkForwardPoints(
 
 /**
  * `buildWalkForwardPoints` limited to what a viewer should see: only vintages
- * issued at or before `asOf` (so opening an older Chronos origin shows the world
- * as it was then, not later revisions), and only target dates from `since` on
+ * with origins at or before `asOf` (the latest stored revision of each origin,
+ * not a historical issuance-time replay), and only target dates from `since` on
  * (so months-old vintages do not stretch a chart past its history window).
  */
 export function walkForwardWindow(

@@ -205,7 +205,7 @@ export default async function ForecastPage({
             bankMeans={bankMeans}
             adjustments={adjustments}
             todayDate={latest?.observed_on ?? null}
-            footnote={`Built from the ${weeklyOptions.length} stored Chronos vintage${weeklyOptions.length === 1 ? "" : "s"} and ${dailyOptions.length} bootstrap vintage${dailyOptions.length === 1 ? "" : "s"} for this pair. Where several vintages covered the same target date, the most recent origin is shown — the view a consumer reading the latest pointer would have had.`}
+            footnote={`Built from the ${weeklyOptions.length} stored Chronos vintage${weeklyOptions.length === 1 ? "" : "s"} and ${dailyOptions.length} bootstrap vintage${dailyOptions.length === 1 ? "" : "s"} for this pair. Where several vintages covered the same target date, the most recent eligible origin and its latest revision are shown, using the same selection rule as the weekly and bootstrap path charts.`}
           />
 
           <section className="grid gap-4 xl:grid-cols-2">

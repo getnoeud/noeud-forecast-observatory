@@ -244,11 +244,17 @@ export const getForecastModel = cache(
       divergence: alignByTargetDate(weekly?.points ?? [], daily?.points ?? []),
       track: buildTrackRows(
         series,
-        paths.map((path) => ({
-          kind: path.vintage.kind,
-          origin: path.vintage.origin,
-          points: path.points,
-        })),
+        paths
+          .filter((path) =>
+            path.vintage.kind !== "weekly_chronos" ||
+            (weekly !== null && path.vintage.origin <= weekly.vintage.origin),
+          )
+          .map((path) => ({
+            kind: path.vintage.kind,
+            origin: path.vintage.origin,
+            revision: path.vintage.revision,
+            points: path.points,
+          })),
       ),
       realized: realized.filter((row) => row.pair === pair),
       bankMeans: comparisons

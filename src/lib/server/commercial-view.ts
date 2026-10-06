@@ -57,6 +57,7 @@ export const getCommercialModel = cache(async (): Promise<CommercialModel> => {
       vintages[index].map((path) => ({
         kind: path.vintage.kind,
         origin: path.vintage.origin,
+        revision: path.vintage.revision,
         points: path.points,
       })),
     ).map((row) => ({ date: row.date, chronos: row.chronos, bootstrap: row.bootstrap }));

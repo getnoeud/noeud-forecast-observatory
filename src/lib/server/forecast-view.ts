@@ -160,11 +160,19 @@ export const getForecastModel = cache(
 
     const historyStart = observations.slice(-historyDays)[0]?.observed_on ?? null;
     const dailyWalkForwardPoints = walkForwardWindow(
-      dailyPaths.map((path) => ({ origin: path.vintage.origin, points: path.points })),
+      dailyPaths.map((path) => ({
+        origin: path.vintage.origin,
+        revision: path.vintage.revision,
+        points: path.points,
+      })),
       { since: historyStart },
     );
     const weeklyWalkForwardPoints = walkForwardWindow(
-      weeklyPaths.map((path) => ({ origin: path.vintage.origin, points: path.points })),
+      weeklyPaths.map((path) => ({
+        origin: path.vintage.origin,
+        revision: path.vintage.revision,
+        points: path.points,
+      })),
       { asOf: weekly?.vintage.origin ?? null, since: historyStart },
     );
     const weeklyOrigins = Array.from(new Set(weeklyWalkForwardPoints.map((point) => point.origin)))

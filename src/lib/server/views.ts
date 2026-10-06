@@ -187,7 +187,11 @@ export const getOverview = cache(async (): Promise<OverviewModel> => {
       const weeklyWalkForward = walkForwardWindow(
         recentByPair[pairIndex]
           .filter((path) => path.vintage.kind === "weekly_chronos")
-          .map((path) => ({ origin: path.vintage.origin, points: path.points })),
+          .map((path) => ({
+            origin: path.vintage.origin,
+            revision: path.vintage.revision,
+            points: path.points,
+          })),
         { since: history[0]?.observed_on ?? null },
       );
       const latest = latestObservations.find((item) => item.pair === pair) ?? null;

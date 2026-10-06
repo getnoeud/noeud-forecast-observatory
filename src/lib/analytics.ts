@@ -537,10 +537,14 @@ export function buildTrackRows(
  * moment a newer vintage supersedes it.
  */
 export function buildWalkForwardPoints(
-  paths: { origin: string; points: ForecastPoint[] }[],
+  paths: { origin: string; revision?: number; points: ForecastPoint[] }[],
 ): (ForecastPoint & { origin: string })[] {
   const byDate = new Map<string, ForecastPoint & { origin: string }>();
-  const ordered = [...paths].sort((a, b) => a.origin.localeCompare(b.origin));
+  // Archive queries return newest revisions first. Origin alone would allow an
+  // older same-origin issuance to overwrite the operator's explicit refresh.
+  const ordered = [...paths].sort(
+    (a, b) => a.origin.localeCompare(b.origin) || (a.revision ?? 1) - (b.revision ?? 1),
+  );
   for (const path of ordered) {
     for (const point of path.points) {
       byDate.set(point.target_date, { ...point, origin: path.origin });
@@ -558,7 +562,7 @@ export function buildWalkForwardPoints(
  * (so months-old vintages do not stretch a chart past its history window).
  */
 export function walkForwardWindow(
-  paths: { origin: string; points: ForecastPoint[] }[],
+  paths: { origin: string; revision?: number; points: ForecastPoint[] }[],
   { asOf, since }: { asOf?: string | null; since?: string | null } = {},
 ): (ForecastPoint & { origin: string })[] {
   const eligible = asOf ? paths.filter((path) => path.origin <= asOf) : paths;
